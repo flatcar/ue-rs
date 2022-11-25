@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::borrow::Cow;
 
-use hard_xml::{XmlWrite};
+use hard_xml::XmlWrite;
 use omaha;
 
 

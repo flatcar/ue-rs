@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::fmt;
 
-use hard_xml::{XmlWrite};
+use hard_xml::XmlWrite;
 
 use crate as omaha;
 
