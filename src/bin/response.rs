@@ -27,6 +27,36 @@ r#"<?xml version="1.0" encoding="UTF-8"?>
 fn main() -> Result<(), Box<dyn Error>> {
     println!("{}", RESPONSE_XML);
     println!();
-    println!("{:#?}", omaha::Response::from_str(RESPONSE_XML)?);
+
+    let resp = omaha::Response::from_str(RESPONSE_XML)?;
+
+    println!("{:#?}", resp);
+    println!();
+
+    for app in &resp.apps {
+        println!("app id {}:", app.id);
+
+        let manifest = &app.update_check.manifest;
+        println!("  version {}:", manifest.version);
+
+        for pkg in &manifest.packages {
+            println!("    package {}:", pkg.name);
+            println!("      sha1: {}", pkg.hash);
+
+            manifest.actions.iter()
+                .find(|a| a.event == "postinstall")
+                .map(|a| {
+                    println!("      sha256: {}", a.sha256);
+                });
+
+            println!();
+            println!("      urls:");
+
+            for url in &app.update_check.urls {
+                println!("        {}", url.join(&pkg.name)?);
+            }
+        }
+    }
+
     Ok(())
 }

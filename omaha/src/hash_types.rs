@@ -47,6 +47,15 @@ impl<T: HashAlgo> fmt::Debug for Hash<T> {
     }
 }
 
+impl<T: HashAlgo> fmt::Display for Hash<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let hash_hex = Hex::encode_to_string(self.0.as_ref())
+            .map_err(|_| fmt::Error)?;
+
+        f.write_str(&hash_hex)
+    }
+}
+
 impl<T: HashAlgo> str::FromStr for Hash<T> {
     type Err = CodecError;
 
