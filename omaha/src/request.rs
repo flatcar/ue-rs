@@ -24,7 +24,7 @@ impl fmt::Display for InstallSource {
 
 #[derive(XmlWrite)]
 #[xml(tag = "os")]
-pub struct OsTag<'a> {
+pub struct Os<'a> {
     #[xml(attr = "platform")]
     pub platform: Cow<'a, str>,
 
@@ -41,7 +41,7 @@ pub struct AppUpdateCheck;
 
 #[derive(XmlWrite)]
 #[xml(tag = "app")]
-pub struct AppTag<'a> {
+pub struct App<'a> {
     #[xml(attr = "appid")]
     pub id: omaha::Uuid,
 
@@ -86,8 +86,8 @@ pub struct Request<'a> {
     pub is_machine: usize,
 
     #[xml(child = "os")]
-    pub os: OsTag<'a>,
+    pub os: Os<'a>,
 
     #[xml(child = "app")]
-    pub apps: Vec<AppTag<'a>>
+    pub apps: Vec<App<'a>>
 }

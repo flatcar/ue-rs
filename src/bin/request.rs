@@ -39,14 +39,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
             install_source: omaha::request::InstallSource::OnDemand,
             is_machine: 1,
 
-            os: omaha::request::OsTag {
+            os: omaha::request::Os {
                 platform: Cow::Borrowed(OS_PLATFORM),
                 version: Cow::Borrowed(OS_VERSION),
                 service_pack: Cow::Owned(format!("{}_{}", APP_VERSION, "x86_64"))
             },
 
             apps: vec![
-                omaha::request::AppTag {
+                omaha::request::App {
                     id: APP_ID,
                     version: Cow::Borrowed(APP_VERSION),
                     track: Cow::Borrowed("stable"),
