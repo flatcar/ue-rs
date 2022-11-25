@@ -27,7 +27,8 @@ impl From<WrappedUuid> for Uuid {
     }
 }
 
-macro_rules! omaha_uuid {
+#[macro_export]
+macro_rules! uuid {
     ($uuid:literal) => {{
         omaha::Uuid::from_uuid(::uuid::uuid!($uuid))
     }};

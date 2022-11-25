@@ -1,4 +1,3 @@
-#[macro_use]
 mod uuid;
 pub use self::uuid::*;
 
