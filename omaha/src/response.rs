@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use hard_xml::XmlRead;
 
 use crate as omaha;
+use omaha::{Sha1, Sha256};
 
 
 // for Manifest and UpdateCheck, we've customised the XmlRead implementation (using `cargo expand`
@@ -17,7 +18,7 @@ pub struct Package<'a> {
     pub name: Cow<'a, str>,
 
     #[xml(attr = "hash")]
-    pub hash: Cow<'a, str>,
+    pub hash: omaha::Hash<Sha1>,
 
     #[xml(attr = "size")]
     pub size: usize,
@@ -33,7 +34,7 @@ pub struct Action<'a> {
     pub event: Cow<'a, str>,
 
     #[xml(attr = "sha256")]
-    pub sha256: Option<Cow<'a, str>>,
+    pub sha256: omaha::Hash<Sha256>,
 
     #[xml(attr = "DisablePayloadBackoff")]
     pub disable_payload_backoff: Option<bool>,

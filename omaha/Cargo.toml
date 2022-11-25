@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 hard-xml = "1.15.0"
 uuid = "1.2"
+ct-codecs = "1"

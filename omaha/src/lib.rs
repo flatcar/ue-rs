@@ -1,3 +1,6 @@
+mod hash_types;
+pub use self::hash_types::*;
+
 mod uuid;
 pub use self::uuid::*;
 
