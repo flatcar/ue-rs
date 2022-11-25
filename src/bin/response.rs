@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("      sha1: {}", pkg.hash);
 
             manifest.actions.iter()
-                .find(|a| a.event == "postinstall")
+                .find(|a| a.event == omaha::response::ActionEvent::PostInstall)
                 .map(|a| {
                     println!("      sha256: {}", a.sha256);
                 });

@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::str::FromStr;
+use std::fmt;
 
 use hard_xml::XmlRead;
 use url::Url;
@@ -23,30 +24,98 @@ pub struct Package<'a> {
     pub hash: omaha::Hash<Sha1>,
 
     #[xml(attr = "size")]
-    pub size: usize,
+    pub size: omaha::FileSize,
 
     #[xml(attr = "required")]
     pub required: bool
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum ActionEvent {
+    PreInstall,
+    Install,
+    PostInstall,
+    Update
+}
+
+impl fmt::Display for ActionEvent {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ActionEvent::PreInstall => f.write_str("preinstall"),
+            ActionEvent::Install => f.write_str("install"),
+            ActionEvent::PostInstall => f.write_str("postinstall"),
+            ActionEvent::Update => f.write_str("update"),
+        }
+    }
+}
+
+impl FromStr for ActionEvent {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "preinstall" => ActionEvent::PreInstall,
+            "install" => ActionEvent::Install,
+            "postinstall" => ActionEvent::PostInstall,
+            "update" => ActionEvent::Update,
+
+            _ => return Err(format!("unknown success action \"{}\"", s))
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum SuccessAction {
+    Default,
+    ExitSilently,
+    ExitSilentlyOnLaunchCommand
+}
+
+impl fmt::Display for SuccessAction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SuccessAction::Default => f.write_str("default"),
+            SuccessAction::ExitSilently => f.write_str("exitsilently"),
+            SuccessAction::ExitSilentlyOnLaunchCommand => f.write_str("exitsilentlyonlaunchcmd"),
+        }
+    }
+}
+
+impl FromStr for SuccessAction {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "default" => SuccessAction::Default,
+            "exitsilently" => SuccessAction::ExitSilently,
+            "exitsilentlyonlaunchcmd" => SuccessAction::ExitSilentlyOnLaunchCommand,
+
+            _ => return Err(format!("unknown success action \"{}\"", s))
+        })
+    }
+}
+
 #[derive(XmlRead, Debug)]
 #[xml(tag = "action")]
-pub struct Action<'a> {
+pub struct Action {
     #[xml(attr = "event")]
-    pub event: Cow<'a, str>,
+    pub event: ActionEvent,
 
     #[xml(attr = "sha256")]
     pub sha256: omaha::Hash<Sha256>,
 
     #[xml(attr = "DisablePayloadBackoff")]
     pub disable_payload_backoff: Option<bool>,
+
+    #[xml(attr = "successaction")]
+    pub success_action: Option<SuccessAction>
 }
 
 #[derive(Debug)]
 pub struct Manifest<'a> {
     pub version: Cow<'a, str>,
     pub packages: Vec<Package<'a>>,
-    pub actions: Vec<Action<'a>>,
+    pub actions: Vec<Action>,
 }
 
 impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
@@ -126,7 +195,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
                         match __tag {
                             "action" => {
                                 __self_actions
-                                    .push(<Action<'a> as hard_xml::XmlRead>::from_reader(reader)?);
+                                    .push(<Action as hard_xml::XmlRead>::from_reader(reader)?);
                             }
 
                             tag => {
