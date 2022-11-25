@@ -427,6 +427,7 @@ version = "0.1.0"
 dependencies = [
  "ct-codecs",
  "hard-xml",
+ "url",
  "uuid",
 ]
 

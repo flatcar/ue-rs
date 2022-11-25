@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use hard_xml::XmlRead;
+use url::Url;
 
 use crate as omaha;
 use omaha::{Sha1, Sha256};
@@ -98,7 +99,8 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
                             "package" => {
                                 __self_packages
                                     .push(<Package<'a> as hard_xml::XmlRead>::from_reader(reader)?);
-                                }
+                            }
+
                             tag => {
                                 reader.next();
                                 reader.read_to_end(tag)?;
@@ -106,6 +108,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
                         }
                     }
                 }
+
                 "actions" => {
                     reader.read_till_element_start("actions")?;
 
@@ -123,7 +126,8 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
                             "action" => {
                                 __self_actions
                                     .push(<Action<'a> as hard_xml::XmlRead>::from_reader(reader)?);
-                                }
+                            }
+
                             tag => {
                                 reader.next();
                                 reader.read_to_end(tag)?;
@@ -150,17 +154,10 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
         return Ok(__res);
     }
 }
-#[derive(XmlRead, Debug)]
-#[xml(tag = "url")]
-pub struct Url<'a> {
-    #[xml(attr = "codebase")]
-    pub codebase: Cow<'a, str>,
-}
-
 #[derive(Debug)]
 pub struct UpdateCheck<'a> {
     pub status: Cow<'a, str>,
-    pub urls: Vec<Url<'a>>,
+    pub urls: Vec<Url>,
 
     pub manifest: Manifest<'a>,
 }
@@ -220,8 +217,20 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
                     while let Some(__tag) = reader.find_element_start(Some("urls"))? {
                         match __tag {
                             "url" => {
-                                __self_urls
-                                    .push(<Url<'a> as hard_xml::XmlRead>::from_reader(reader)?);
+                                reader.read_till_element_start("url")?;
+                                while let Some((__key, __value)) = reader.find_attribute()? {
+                                    match __key {
+                                        "codebase" => {
+                                            __self_urls.push(
+                                                <Url as std::str::FromStr>::from_str(&__value)
+                                                    .map_err(|e| XmlError::FromStr(e.into()))?,
+                                            )
+                                        }
+                                        _ => {}
+                                    }
+                                }
+
+                                reader.read_to_end("url")?;
                             },
 
                             tag => {

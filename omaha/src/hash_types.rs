@@ -12,17 +12,14 @@ use ct_codecs::{
 };
 
 
-#[derive(Debug)]
 pub struct Sha1;
-
-#[derive(Debug)]
 pub struct Sha256;
 
 pub trait HashAlgo {
     const HASH_NAME: &'static str;
 
     type Output:
-        AsRef<[u8]> + AsMut<[u8]> + Default + Sized;
+        AsRef<[u8]> + AsMut<[u8]> + Default + Sized + Eq;
 }
 
 impl HashAlgo for Sha1 {
@@ -35,6 +32,7 @@ impl HashAlgo for Sha256 {
     type Output = [u8; 32];
 }
 
+#[derive(PartialEq, Eq)]
 pub struct Hash<T: HashAlgo>(T::Output);
 
 impl<T: HashAlgo> fmt::Debug for Hash<T> {
@@ -52,8 +50,7 @@ impl<T: HashAlgo> fmt::Debug for Hash<T> {
 impl<T: HashAlgo> str::FromStr for Hash<T> {
     type Err = CodecError;
 
-    fn from_str(hash_base64: &str) -> Result<Self, Self::Err>
-    {
+    fn from_str(hash_base64: &str) -> Result<Self, Self::Err> {
         let mut digest = T::Output::default();
         Base64::decode(digest.as_mut(), hash_base64, None)?;
         Ok(Self(digest))
