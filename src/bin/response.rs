@@ -3,7 +3,8 @@ use std::error::Error;
 use hard_xml::XmlRead;
 use omaha;
 
-const RESPONSE_XML: &'static str = r#"
+const RESPONSE_XML: &'static str =
+r#"<?xml version="1.0" encoding="UTF-8"?>
 <response protocol="3.0" server="nebraska">
   <daystart elapsed_seconds="0"/>
   <app appid="{e96281a6-d1af-4bde-9a0a-97b76e56dc57}" status="ok">
@@ -21,12 +22,11 @@ const RESPONSE_XML: &'static str = r#"
       </manifest>
     </updatecheck>
   </app>
-</response>
-"#;
+</response>"#;
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("{}", RESPONSE_XML);
     println!();
-    println!("{:#?}", omaha::Response::from_str(RESPONSE_XML));
+    println!("{:#?}", omaha::Response::from_str(RESPONSE_XML)?);
     Ok(())
 }
