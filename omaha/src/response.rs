@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::str::FromStr;
 
 use hard_xml::XmlRead;
 use url::Url;
@@ -58,18 +59,18 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
         let mut __self_packages = Vec::new();
         let mut __self_actions = Vec::new();
         reader.read_till_element_start("manifest")?;
-        while let Some((__key, __value)) = reader.find_attribute()? {
-            match __key {
-                "version" => {
-                    __self_version = Some(__value);
-                }
-                _ => {}
+
+        while let Some((k, v)) = reader.find_attribute()? {
+            match k {
+                "version" => __self_version = Some(v),
+                _ => ()
             }
         }
+
         if let Token::ElementEnd { end: ElementEnd::Empty, .. }
             = reader.next().unwrap()?
         {
-            let __res = Manifest {
+            return Ok(Manifest {
                 version: __self_version
                     .ok_or(XmlError::MissingField {
                         name: "Manifest".to_owned(),
@@ -77,11 +78,11 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
                     })?,
                 packages: __self_packages,
                 actions: __self_actions,
-            };
-            return Ok(__res);
+            });
         }
-        while let Some(__tag) = reader.find_element_start(Some("manifest"))? {
-            match __tag {
+
+        while let Some(tag) = reader.find_element_start(Some("manifest"))? {
+            match tag {
                 "packages" => {
                     reader.read_till_element_start("packages")?;
 
@@ -142,7 +143,8 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
                 }
             }
         }
-        let __res = Manifest {
+
+        return Ok(Manifest {
             version: __self_version
                 .ok_or(XmlError::MissingField {
                     name: "Manifest".to_owned(),
@@ -150,8 +152,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
                 })?,
                 packages: __self_packages,
                 actions: __self_actions,
-        };
-        return Ok(__res);
+        });
     }
 }
 #[derive(Debug)]
@@ -174,11 +175,9 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
 
         reader.read_till_element_start("updatecheck")?;
 
-        while let Some((__key, __value)) = reader.find_attribute()? {
-            match __key {
-                "status" => {
-                    __self_status = Some(__value);
-                }
+        while let Some((k, v)) = reader.find_attribute()? {
+            match k {
+                "status" => __self_status = Some(v),
                 _ => {}
             }
         }
@@ -186,7 +185,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
         if let Token::ElementEnd { end: ElementEnd::Empty, .. }
             = reader.next().unwrap()?
         {
-            let __res = UpdateCheck {
+            return Ok(UpdateCheck {
                 status: __self_status
                     .ok_or(XmlError::MissingField {
                         name: "UpdateCheck".to_owned(),
@@ -198,8 +197,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
                         name: "UpdateCheck".to_owned(),
                         field: "manifest".to_owned(),
                     })?,
-            };
-            return Ok(__res);
+            });
         }
 
         while let Some(__tag) = reader.find_element_start(Some("updatecheck"))? {
@@ -218,14 +216,15 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
                         match __tag {
                             "url" => {
                                 reader.read_till_element_start("url")?;
-                                while let Some((__key, __value)) = reader.find_attribute()? {
-                                    match __key {
+                                while let Some((k, v)) = reader.find_attribute()? {
+                                    match k {
                                         "codebase" => {
                                             __self_urls.push(
-                                                <Url as std::str::FromStr>::from_str(&__value)
+                                                Url::from_str(&v)
                                                     .map_err(|e| XmlError::FromStr(e.into()))?,
                                             )
                                         }
+
                                         _ => {}
                                     }
                                 }
@@ -254,7 +253,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
             }
         }
 
-        let __res = UpdateCheck {
+        return Ok(UpdateCheck {
             status: __self_status
                 .ok_or(XmlError::MissingField {
                     name: "UpdateCheck".to_owned(),
@@ -266,9 +265,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
                     name: "UpdateCheck".to_owned(),
                     field: "manifest".to_owned(),
                 })?,
-        };
-
-        return Ok(__res);
+        });
     }
 }
 
