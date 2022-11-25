@@ -416,6 +416,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "omaha"
+version = "0.1.0"
+dependencies = [
+ "hard-xml",
+ "uuid",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -826,6 +834,7 @@ name = "ue-rs"
 version = "0.1.0"
 dependencies = [
  "hard-xml",
+ "omaha",
  "reqwest",
  "tokio",
  "uuid",

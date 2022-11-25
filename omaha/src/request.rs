@@ -3,7 +3,7 @@ use std::fmt;
 
 use hard_xml::{XmlWrite};
 
-use super::super::omaha;
+use crate as omaha;
 
 
 #[allow(dead_code)]

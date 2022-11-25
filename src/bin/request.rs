@@ -2,9 +2,7 @@ use std::error::Error;
 use std::borrow::Cow;
 
 use hard_xml::{XmlWrite};
-
-
-use ue_rs::omaha;
+use omaha;
 
 
 //
@@ -25,7 +23,7 @@ const OS_PLATFORM: &'static str = "CoreOS";
 const OS_VERSION: &'static str = "Chateau";
 
 const APP_VERSION: &'static str = "3340.0.0+nightly-20220823-2100";
-const APP_ID: omaha::Uuid = ue_rs::uuid!("{e96281a6-d1af-4bde-9a0a-97b76e56dc57}");
+const APP_ID: omaha::Uuid = omaha::uuid!("{e96281a6-d1af-4bde-9a0a-97b76e56dc57}");
 
 const MACHINE_ID: &'static str = "abce671d61774703ac7be60715220bfe";
 
