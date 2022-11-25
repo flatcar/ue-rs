@@ -5,7 +5,6 @@ use hard_xml::{XmlWrite};
 
 #[macro_use]
 mod omaha;
-use omaha::*;
 
 //
 // SERVER=https://public.update.flatcar-linux.net/v1/update/
@@ -25,30 +24,30 @@ const OS_PLATFORM: &'static str = "CoreOS";
 const OS_VERSION: &'static str = "Chateau";
 
 const APP_VERSION: &'static str = "3340.0.0+nightly-20220823-2100";
-const APP_ID: OmahaUuid = omaha_uuid!("{e96281a6-d1af-4bde-9a0a-97b76e56dc57}");
+const APP_ID: omaha::Uuid = omaha_uuid!("{e96281a6-d1af-4bde-9a0a-97b76e56dc57}");
 
 const MACHINE_ID: &'static str = "abce671d61774703ac7be60715220bfe";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let req_body = {
-        let r = OmahaRequest {
+        let r = omaha::Request {
             protocol_version: Cow::Borrowed(PROTOCOL_VERSION),
 
             version: Cow::Borrowed(UPDATER_VERSION_STR),
             updater_version: Cow::Borrowed(UPDATER_VERSION_STR),
 
-            install_source: OmahaInstallSource::OnDemand,
+            install_source: omaha::request::InstallSource::OnDemand,
             is_machine: 1,
 
-            os: OmahaOsTag {
+            os: omaha::request::OsTag {
                 platform: Cow::Borrowed(OS_PLATFORM),
                 version: Cow::Borrowed(OS_VERSION),
                 service_pack: Cow::Owned(format!("{}_{}", APP_VERSION, "x86_64"))
             },
 
             apps: vec![
-                OmahaAppTag {
+                omaha::request::AppTag {
                     id: APP_ID,
                     version: Cow::Borrowed(APP_VERSION),
                     track: Cow::Borrowed("stable"),
@@ -60,7 +59,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                     machine_id: Cow::Borrowed(MACHINE_ID),
 
-                    update_check: Some(OmahaAppUpdateCheck)
+                    update_check: Some(omaha::request::AppUpdateCheck)
                 }
             ]
         };
