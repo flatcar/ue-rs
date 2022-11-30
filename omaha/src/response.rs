@@ -21,13 +21,16 @@ pub struct Package<'a> {
     pub name: Cow<'a, str>,
 
     #[xml(attr = "hash")]
-    pub hash: omaha::Hash<Sha1>,
+    pub hash: Option<omaha::Hash<Sha1>>,
 
     #[xml(attr = "size")]
     pub size: omaha::FileSize,
 
     #[xml(attr = "required")]
-    pub required: bool
+    pub required: bool,
+
+    #[xml(attr = "sha256")]
+    pub hash_sha256: Option<omaha::Hash<Sha256>>
 }
 
 #[derive(Debug, PartialEq, Eq)]

@@ -41,12 +41,19 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         for pkg in &manifest.packages {
             println!("    package {}:", pkg.name);
-            println!("      sha1: {}", pkg.hash);
 
-            manifest.actions.iter()
-                .find(|a| a.event == omaha::response::ActionEvent::PostInstall)
-                .map(|a| {
-                    println!("      sha256: {}", a.sha256);
+            pkg.hash.as_ref()
+                .map(|h| println!("      sha1: {}", h));
+
+            pkg.hash_sha256
+                .as_ref()
+                .or_else(|| {
+                    manifest.actions.iter()
+                        .find(|a| a.event == omaha::response::ActionEvent::PostInstall)
+                        .map(|a| &a.sha256)
+                })
+                .map(|h| {
+                    println!("      sha256: {}", h);
                 });
 
             println!();
@@ -55,6 +62,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             for url in &app.update_check.urls {
                 println!("        {}", url.join(&pkg.name)?);
             }
+
+            println!();
         }
     }
 
