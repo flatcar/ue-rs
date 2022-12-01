@@ -6,7 +6,7 @@ use hard_xml::XmlRead;
 use url::Url;
 
 use crate as omaha;
-use omaha::{Sha1, Sha256};
+use self::omaha::{Sha1, Sha256};
 
 
 // for Manifest and UpdateCheck, we've customised the XmlRead implementation (using `cargo expand`
