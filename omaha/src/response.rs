@@ -133,9 +133,8 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
         reader.read_till_element_start("manifest")?;
 
         while let Some((k, v)) = reader.find_attribute()? {
-            match k {
-                "version" => __self_version = Some(v),
-                _ => ()
+            if k == "version" {
+                 __self_version = Some(v);
             }
         }
 
@@ -158,7 +157,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
                 "packages" => {
                     reader.read_till_element_start("packages")?;
 
-                    while let Some(_) = reader.find_attribute()? {}
+                    while (reader.find_attribute()?).is_some() {}
 
                     if let Token::ElementEnd { end: ElementEnd::Empty, .. }
                         = reader.next().unwrap()?
@@ -185,7 +184,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
                 "actions" => {
                     reader.read_till_element_start("actions")?;
 
-                    while let Some(_) = reader.find_attribute()? {}
+                    while (reader.find_attribute()?).is_some() {}
 
                     if let Token::ElementEnd { end: ElementEnd::Empty, .. }
                         = reader.next().unwrap()?
@@ -216,7 +215,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
             }
         }
 
-        return Ok(Manifest {
+        Ok(Manifest {
             version: __self_version
                 .ok_or(XmlError::MissingField {
                     name: "Manifest".to_owned(),
@@ -224,7 +223,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
                 })?,
                 packages: __self_packages,
                 actions: __self_actions,
-        });
+        })
     }
 }
 #[derive(Debug)]
@@ -248,9 +247,8 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
         reader.read_till_element_start("updatecheck")?;
 
         while let Some((k, v)) = reader.find_attribute()? {
-            match k {
-                "status" => __self_status = Some(v),
-                _ => {}
+            if k == "status" {
+                __self_status = Some(v);
             }
         }
 
@@ -277,7 +275,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
                 "urls" => {
                     reader.read_till_element_start("urls")?;
 
-                    while let Some(_) = reader.find_attribute()? {}
+                    while (reader.find_attribute()?).is_some() {}
                     if let Token::ElementEnd { end: ElementEnd::Empty, .. }
                         = reader.next().unwrap()?
                     {
@@ -289,15 +287,11 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
                             "url" => {
                                 reader.read_till_element_start("url")?;
                                 while let Some((k, v)) = reader.find_attribute()? {
-                                    match k {
-                                        "codebase" => {
-                                            __self_urls.push(
-                                                Url::from_str(&v)
-                                                    .map_err(|e| XmlError::FromStr(e.into()))?,
-                                            )
-                                        }
-
-                                        _ => {}
+                                    if k == "codebase" {
+                                        __self_urls.push(
+                                            Url::from_str(&v)
+                                                .map_err(|e| XmlError::FromStr(e.into()))?,
+                                        )
                                     }
                                 }
 
@@ -325,7 +319,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
             }
         }
 
-        return Ok(UpdateCheck {
+        Ok(UpdateCheck {
             status: __self_status
                 .ok_or(XmlError::MissingField {
                     name: "UpdateCheck".to_owned(),
@@ -337,7 +331,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
                     name: "UpdateCheck".to_owned(),
                     field: "manifest".to_owned(),
                 })?,
-        });
+        })
     }
 }
 

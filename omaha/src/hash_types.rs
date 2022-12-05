@@ -41,7 +41,7 @@ impl<T: HashAlgo> fmt::Debug for Hash<T> {
         let hash_hex = Hex::encode_to_string(self.0.as_ref())
             .map_err(|_| fmt::Error)?;
 
-        f.debug_tuple(&*tn)
+        f.debug_tuple(&tn)
             .field(&hash_hex)
             .finish()
     }

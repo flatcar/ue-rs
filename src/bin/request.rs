@@ -2,7 +2,6 @@ use std::error::Error;
 use std::borrow::Cow;
 
 use hard_xml::XmlWrite;
-use omaha;
 
 
 //
@@ -14,18 +13,17 @@ use omaha;
 // FLATCAR_RELEASE_APPID={e96281a6-d1af-4bde-9a0a-97b76e56dc57}
 //
 
-const UPDATE_URL: &'static str = "https://public.update.flatcar-linux.net/v1/update/";
-const PROTOCOL_VERSION: &'static str = "3.0";
-// const UPDATER_VERSION_STR: &'static str = "update-engine-0.4.10";
-const UPDATER_VERSION_STR: &'static str = "ue-rs-0.0.0";
+const UPDATE_URL: &str = "https://public.update.flatcar-linux.net/v1/update/";
+const PROTOCOL_VERSION: &str = "3.0";
+const UPDATER_VERSION_STR: &str = "ue-rs-0.0.0";
 
-const OS_PLATFORM: &'static str = "CoreOS";
-const OS_VERSION: &'static str = "Chateau";
+const OS_PLATFORM: &str = "CoreOS";
+const OS_VERSION: &str = "Chateau";
 
-const APP_VERSION: &'static str = "3340.0.0+nightly-20220823-2100";
+const APP_VERSION: &str = "3340.0.0+nightly-20220823-2100";
 const APP_ID: omaha::Uuid = omaha::uuid!("{e96281a6-d1af-4bde-9a0a-97b76e56dc57}");
 
-const MACHINE_ID: &'static str = "abce671d61774703ac7be60715220bfe";
+const MACHINE_ID: &str = "abce671d61774703ac7be60715220bfe";
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {

@@ -1,9 +1,8 @@
 use std::error::Error;
 
 use hard_xml::XmlRead;
-use omaha;
 
-const RESPONSE_XML: &'static str =
+const RESPONSE_XML: & str =
 r#"<?xml version="1.0" encoding="UTF-8"?>
 <response protocol="3.0" server="nebraska">
   <daystart elapsed_seconds="0"/>
@@ -42,19 +41,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         for pkg in &manifest.packages {
             println!("    package {}:", pkg.name);
 
-            pkg.hash.as_ref()
-                .map(|h| println!("      sha1: {}", h));
+            if let Some(h) = pkg.hash.as_ref() {
+                println!("      sha1: {}", h)
+            };
 
-            pkg.hash_sha256
+            if let Some(h) = pkg.hash_sha256
                 .as_ref()
                 .or_else(|| {
                     manifest.actions.iter()
                         .find(|a| a.event == omaha::response::ActionEvent::PostInstall)
                         .map(|a| &a.sha256)
-                })
-                .map(|h| {
+                }) {
                     println!("      sha256: {}", h);
-                });
+                }
 
             println!();
             println!("      urls:");
