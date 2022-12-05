@@ -2,8 +2,7 @@ use std::error::Error;
 
 use hard_xml::XmlRead;
 
-const RESPONSE_XML: & str =
-r#"<?xml version="1.0" encoding="UTF-8"?>
+const RESPONSE_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <response protocol="3.0" server="nebraska">
   <daystart elapsed_seconds="0"/>
   <app appid="{e96281a6-d1af-4bde-9a0a-97b76e56dc57}" status="ok">
@@ -45,15 +44,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                 println!("      sha1: {}", h)
             };
 
-            if let Some(h) = pkg.hash_sha256
-                .as_ref()
-                .or_else(|| {
-                    manifest.actions.iter()
-                        .find(|a| a.event == omaha::response::ActionEvent::PostInstall)
-                        .map(|a| &a.sha256)
-                }) {
-                    println!("      sha256: {}", h);
-                }
+            if let Some(h) = pkg.hash_sha256.as_ref().or_else(|| {
+                manifest
+                    .actions
+                    .iter()
+                    .find(|a| a.event == omaha::response::ActionEvent::PostInstall)
+                    .map(|a| &a.sha256)
+            }) {
+                println!("      sha256: {}", h);
+            }
 
             println!();
             println!("      urls:");

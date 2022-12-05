@@ -1,6 +1,5 @@
 use std::str;
 
-
 #[derive(Debug)]
 #[repr(transparent)]
 pub struct FileSize(usize);

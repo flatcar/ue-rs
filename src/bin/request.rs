@@ -1,8 +1,7 @@
-use std::error::Error;
 use std::borrow::Cow;
+use std::error::Error;
 
 use hard_xml::XmlWrite;
-
 
 //
 // SERVER=https://public.update.flatcar-linux.net/v1/update/
@@ -40,25 +39,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
             os: omaha::request::Os {
                 platform: Cow::Borrowed(OS_PLATFORM),
                 version: Cow::Borrowed(OS_VERSION),
-                service_pack: Cow::Owned(format!("{}_{}", APP_VERSION, "x86_64"))
+                service_pack: Cow::Owned(format!("{}_{}", APP_VERSION, "x86_64")),
             },
 
-            apps: vec![
-                omaha::request::App {
-                    id: APP_ID,
-                    version: Cow::Borrowed(APP_VERSION),
-                    track: Cow::Borrowed("stable"),
+            apps: vec![omaha::request::App {
+                id: APP_ID,
+                version: Cow::Borrowed(APP_VERSION),
+                track: Cow::Borrowed("stable"),
 
-                    boot_id: None,
+                boot_id: None,
 
-                    oem: None,
-                    oem_version: None,
+                oem: None,
+                oem_version: None,
 
-                    machine_id: Cow::Borrowed(MACHINE_ID),
+                machine_id: Cow::Borrowed(MACHINE_ID),
 
-                    update_check: Some(omaha::request::AppUpdateCheck)
-                }
-            ]
+                update_check: Some(omaha::request::AppUpdateCheck),
+            }],
         };
 
         r.to_string()?
@@ -69,10 +66,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // return Ok(());
 
     let client = reqwest::Client::new();
-    let resp = client.post(UPDATE_URL)
-        .body(req_body)
-        .send()
-        .await?;
+    let resp = client.post(UPDATE_URL).body(req_body).send().await?;
 
     println!("{:#?}", resp);
 

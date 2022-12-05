@@ -1,13 +1,12 @@
 use std::borrow::Cow;
-use std::str::FromStr;
 use std::fmt;
+use std::str::FromStr;
 
 use hard_xml::XmlRead;
 use url::Url;
 
-use crate as omaha;
 use self::omaha::{Sha1, Sha256};
-
+use crate as omaha;
 
 // for Manifest and UpdateCheck, we've customised the XmlRead implementation (using `cargo expand`
 // and inlining) so that we can flatten the `packages`, `actions`, and `urls` container tags.
@@ -30,7 +29,7 @@ pub struct Package<'a> {
     pub required: bool,
 
     #[xml(attr = "sha256")]
-    pub hash_sha256: Option<omaha::Hash<Sha256>>
+    pub hash_sha256: Option<omaha::Hash<Sha256>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -38,7 +37,7 @@ pub enum ActionEvent {
     PreInstall,
     Install,
     PostInstall,
-    Update
+    Update,
 }
 
 impl fmt::Display for ActionEvent {
@@ -62,7 +61,7 @@ impl FromStr for ActionEvent {
             "postinstall" => ActionEvent::PostInstall,
             "update" => ActionEvent::Update,
 
-            _ => return Err(format!("unknown success action \"{}\"", s))
+            _ => return Err(format!("unknown success action \"{}\"", s)),
         })
     }
 }
@@ -71,7 +70,7 @@ impl FromStr for ActionEvent {
 pub enum SuccessAction {
     Default,
     ExitSilently,
-    ExitSilentlyOnLaunchCommand
+    ExitSilentlyOnLaunchCommand,
 }
 
 impl fmt::Display for SuccessAction {
@@ -93,7 +92,7 @@ impl FromStr for SuccessAction {
             "exitsilently" => SuccessAction::ExitSilently,
             "exitsilentlyonlaunchcmd" => SuccessAction::ExitSilentlyOnLaunchCommand,
 
-            _ => return Err(format!("unknown success action \"{}\"", s))
+            _ => return Err(format!("unknown success action \"{}\"", s)),
         })
     }
 }
@@ -111,7 +110,7 @@ pub struct Action {
     pub disable_payload_backoff: Option<bool>,
 
     #[xml(attr = "successaction")]
-    pub success_action: Option<SuccessAction>
+    pub success_action: Option<SuccessAction>,
 }
 
 #[derive(Debug)]
@@ -122,9 +121,7 @@ pub struct Manifest<'a> {
 }
 
 impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
-    fn from_reader(
-        reader: &mut hard_xml::XmlReader<'__input>,
-    ) -> hard_xml::XmlResult<Self> {
+    fn from_reader(reader: &mut hard_xml::XmlReader<'__input>) -> hard_xml::XmlResult<Self> {
         use hard_xml::xmlparser::{ElementEnd, Token};
         use hard_xml::XmlError;
         let mut __self_version = None;
@@ -134,19 +131,20 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
 
         while let Some((k, v)) = reader.find_attribute()? {
             if k == "version" {
-                 __self_version = Some(v);
+                __self_version = Some(v);
             }
         }
 
-        if let Token::ElementEnd { end: ElementEnd::Empty, .. }
-            = reader.next().unwrap()?
+        if let Token::ElementEnd {
+            end: ElementEnd::Empty,
+            ..
+        } = reader.next().unwrap()?
         {
             return Ok(Manifest {
-                version: __self_version
-                    .ok_or(XmlError::MissingField {
-                        name: "Manifest".to_owned(),
-                        field: "version".to_owned(),
-                    })?,
+                version: __self_version.ok_or(XmlError::MissingField {
+                    name: "Manifest".to_owned(),
+                    field: "version".to_owned(),
+                })?,
                 packages: __self_packages,
                 actions: __self_actions,
             });
@@ -159,14 +157,15 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
 
                     while (reader.find_attribute()?).is_some() {}
 
-                    if let Token::ElementEnd { end: ElementEnd::Empty, .. }
-                        = reader.next().unwrap()?
+                    if let Token::ElementEnd {
+                        end: ElementEnd::Empty,
+                        ..
+                    } = reader.next().unwrap()?
                     {
                         continue;
                     }
 
-                    while let Some(__tag) = reader.find_element_start(Some("packages"))?
-                    {
+                    while let Some(__tag) = reader.find_element_start(Some("packages"))? {
                         match __tag {
                             "package" => {
                                 __self_packages
@@ -186,14 +185,15 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
 
                     while (reader.find_attribute()?).is_some() {}
 
-                    if let Token::ElementEnd { end: ElementEnd::Empty, .. }
-                        = reader.next().unwrap()?
+                    if let Token::ElementEnd {
+                        end: ElementEnd::Empty,
+                        ..
+                    } = reader.next().unwrap()?
                     {
                         continue;
                     }
 
-                    while let Some(__tag) = reader.find_element_start(Some("actions"))?
-                    {
+                    while let Some(__tag) = reader.find_element_start(Some("actions"))? {
                         match __tag {
                             "action" => {
                                 __self_actions
@@ -206,7 +206,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
                             }
                         }
                     }
-                },
+                }
 
                 tag => {
                     reader.next();
@@ -216,13 +216,12 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
         }
 
         Ok(Manifest {
-            version: __self_version
-                .ok_or(XmlError::MissingField {
-                    name: "Manifest".to_owned(),
-                    field: "version".to_owned(),
-                })?,
-                packages: __self_packages,
-                actions: __self_actions,
+            version: __self_version.ok_or(XmlError::MissingField {
+                name: "Manifest".to_owned(),
+                field: "version".to_owned(),
+            })?,
+            packages: __self_packages,
+            actions: __self_actions,
         })
     }
 }
@@ -235,9 +234,7 @@ pub struct UpdateCheck<'a> {
 }
 
 impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
-    fn from_reader(
-        reader: &mut hard_xml::XmlReader<'__input>,
-    ) -> hard_xml::XmlResult<Self> {
+    fn from_reader(reader: &mut hard_xml::XmlReader<'__input>) -> hard_xml::XmlResult<Self> {
         use hard_xml::xmlparser::{ElementEnd, Token};
         use hard_xml::XmlError;
         let mut __self_status = None;
@@ -252,21 +249,21 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
             }
         }
 
-        if let Token::ElementEnd { end: ElementEnd::Empty, .. }
-            = reader.next().unwrap()?
+        if let Token::ElementEnd {
+            end: ElementEnd::Empty,
+            ..
+        } = reader.next().unwrap()?
         {
             return Ok(UpdateCheck {
-                status: __self_status
-                    .ok_or(XmlError::MissingField {
-                        name: "UpdateCheck".to_owned(),
-                        field: "status".to_owned(),
-                    })?,
+                status: __self_status.ok_or(XmlError::MissingField {
+                    name: "UpdateCheck".to_owned(),
+                    field: "status".to_owned(),
+                })?,
                 urls: __self_urls,
-                manifest: __self_manifest
-                    .ok_or(XmlError::MissingField {
-                        name: "UpdateCheck".to_owned(),
-                        field: "manifest".to_owned(),
-                    })?,
+                manifest: __self_manifest.ok_or(XmlError::MissingField {
+                    name: "UpdateCheck".to_owned(),
+                    field: "manifest".to_owned(),
+                })?,
             });
         }
 
@@ -276,8 +273,10 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
                     reader.read_till_element_start("urls")?;
 
                     while (reader.find_attribute()?).is_some() {}
-                    if let Token::ElementEnd { end: ElementEnd::Empty, .. }
-                        = reader.next().unwrap()?
+                    if let Token::ElementEnd {
+                        end: ElementEnd::Empty,
+                        ..
+                    } = reader.next().unwrap()?
                     {
                         continue;
                     }
@@ -296,7 +295,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
                                 }
 
                                 reader.read_to_end("url")?;
-                            },
+                            }
 
                             tag => {
                                 reader.next();
@@ -307,9 +306,8 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
                 }
 
                 "manifest" => {
-                    __self_manifest = Some(
-                        <Manifest<'_> as hard_xml::XmlRead>::from_reader(reader)?,
-                    );
+                    __self_manifest =
+                        Some(<Manifest<'_> as hard_xml::XmlRead>::from_reader(reader)?);
                 }
 
                 tag => {
@@ -320,17 +318,15 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
         }
 
         Ok(UpdateCheck {
-            status: __self_status
-                .ok_or(XmlError::MissingField {
-                    name: "UpdateCheck".to_owned(),
-                    field: "status".to_owned(),
-                })?,
+            status: __self_status.ok_or(XmlError::MissingField {
+                name: "UpdateCheck".to_owned(),
+                field: "status".to_owned(),
+            })?,
             urls: __self_urls,
-            manifest: __self_manifest
-                .ok_or(XmlError::MissingField {
-                    name: "UpdateCheck".to_owned(),
-                    field: "manifest".to_owned(),
-                })?,
+            manifest: __self_manifest.ok_or(XmlError::MissingField {
+                name: "UpdateCheck".to_owned(),
+                field: "manifest".to_owned(),
+            })?,
         })
     }
 }
@@ -355,5 +351,5 @@ pub struct Response<'a> {
     pub protocol_version: Cow<'a, str>,
 
     #[xml(child = "app")]
-    pub apps: Vec<App<'a>>
+    pub apps: Vec<App<'a>>,
 }
