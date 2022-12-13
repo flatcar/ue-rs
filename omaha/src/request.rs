@@ -5,19 +5,18 @@ use hard_xml::XmlWrite;
 
 use crate as omaha;
 
-
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum InstallSource {
     OnDemand,
-    Scheduler
+    Scheduler,
 }
 
 impl fmt::Display for InstallSource {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             InstallSource::OnDemand => f.write_str("ondemand"),
-            InstallSource::Scheduler => f.write_str("scheduler")
+            InstallSource::Scheduler => f.write_str("scheduler"),
         }
     }
 }
@@ -32,7 +31,7 @@ pub struct Os<'a> {
     pub version: Cow<'a, str>,
 
     #[xml(attr = "sp")]
-    pub service_pack: Cow<'a, str>
+    pub service_pack: Cow<'a, str>,
 }
 
 #[derive(XmlWrite)]
@@ -64,7 +63,7 @@ pub struct App<'a> {
     pub machine_id: Cow<'a, str>,
 
     #[xml(child = "updatecheck")]
-    pub update_check: Option<AppUpdateCheck>
+    pub update_check: Option<AppUpdateCheck>,
 }
 
 #[derive(XmlWrite)]
@@ -89,5 +88,5 @@ pub struct Request<'a> {
     pub os: Os<'a>,
 
     #[xml(child = "app")]
-    pub apps: Vec<App<'a>>
+    pub apps: Vec<App<'a>>,
 }
