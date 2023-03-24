@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::io::Write;
 use std::io;
 
 use sha2::{Sha256, Digest};
@@ -27,15 +28,17 @@ pub async fn download_and_hash<U, W>(client: &reqwest::Client, url: U, mut data:
         bytes_read += chunk.len();
 
         hasher.update(&chunk);
-        data.write(&chunk)?;
+        data.write_all(&chunk)?;
 
         // TODO: better way to report progress?
-        println!("read {}/{} ({:3}%)",
+        print!("\rread {}/{} ({:3}%)",
             bytes_read, bytes_to_read,
             ((bytes_read as f32 / bytes_to_read as f32) * 100.0f32).floor());
+        io::stdout().flush()?;
     }
 
     data.flush()?;
+    println!();
 
     Ok(DownloadResult {
         hash: omaha::Hash::from_bytes(hasher.finalize().into()),

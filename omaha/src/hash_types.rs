@@ -12,7 +12,10 @@ use ct_codecs::{
 };
 
 
+#[derive(PartialEq, Eq, Clone)]
 pub struct Sha1;
+
+#[derive(PartialEq, Eq, Clone)]
 pub struct Sha256;
 
 pub trait HashAlgo {
@@ -32,7 +35,7 @@ impl HashAlgo for Sha256 {
     type Output = [u8; 32];
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct Hash<T: HashAlgo>(T::Output);
 
 impl<T: HashAlgo> Hash<T> {

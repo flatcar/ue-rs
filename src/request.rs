@@ -66,6 +66,7 @@ pub async fn perform_request(client: &reqwest::Client) -> Result<String, Box<dyn
         r.to_string()?
     };
 
+    // TODO: remove
     println!("request body:\n\t{}", req_body);
     println!();
 
