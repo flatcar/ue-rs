@@ -35,6 +35,12 @@ impl HashAlgo for Sha256 {
 #[derive(PartialEq, Eq)]
 pub struct Hash<T: HashAlgo>(T::Output);
 
+impl<T: HashAlgo> Hash<T> {
+    pub fn from_bytes(digest: T::Output) -> Self {
+        Self(digest)
+    }
+}
+
 impl<T: HashAlgo> fmt::Debug for Hash<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let tn = format!("Hash<{}>", T::HASH_NAME);
