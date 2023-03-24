@@ -45,13 +45,15 @@ fn main() -> Result<(), Box<dyn Error>> {
             pkg.hash.as_ref()
                 .map(|h| println!("      sha1: {}", h));
 
-            pkg.hash_sha256
+            let hash_sha256 = pkg.hash_sha256
                 .as_ref()
                 .or_else(|| {
                     manifest.actions.iter()
                         .find(|a| a.event == omaha::response::ActionEvent::PostInstall)
                         .map(|a| &a.sha256)
-                })
+                });
+
+            hash_sha256
                 .map(|h| {
                     println!("      sha256: {}", h);
                 });
