@@ -22,13 +22,17 @@ const UPDATER_VERSION_STR: &'static str = "ue-rs-0.0.0";
 const OS_PLATFORM: &'static str = "CoreOS";
 const OS_VERSION: &'static str = "Chateau";
 
-const APP_VERSION: &'static str = "3340.0.0+nightly-20220823-2100";
 const APP_ID: omaha::Uuid = omaha::uuid!("{e96281a6-d1af-4bde-9a0a-97b76e56dc57}");
 
-const MACHINE_ID: &'static str = "abce671d61774703ac7be60715220bfe";
 
+pub struct Parameters<'a> {
+    pub app_version: Cow<'a, str>,
+    pub track: Cow<'a, str>,
 
-pub async fn perform_request(client: &reqwest::Client) -> Result<String, Box<dyn Error>> {
+    pub machine_id: Cow<'a, str>,
+}
+
+pub async fn perform<'a>(client: &reqwest::Client, parameters: Parameters<'a>) -> Result<String, Box<dyn Error>> {
     let req_body = {
         let r = omaha::Request {
             protocol_version: Cow::Borrowed(PROTOCOL_VERSION),
@@ -42,21 +46,23 @@ pub async fn perform_request(client: &reqwest::Client) -> Result<String, Box<dyn
             os: omaha::request::Os {
                 platform: Cow::Borrowed(OS_PLATFORM),
                 version: Cow::Borrowed(OS_VERSION),
-                service_pack: Cow::Owned(format!("{}_{}", APP_VERSION, "x86_64"))
+                service_pack: Cow::Owned(
+                    format!("{}_{}", parameters.app_version, "x86_64")
+                )
             },
 
             apps: vec![
                 omaha::request::App {
                     id: APP_ID,
-                    version: Cow::Borrowed(APP_VERSION),
-                    track: Cow::Borrowed("stable"),
+                    version: parameters.app_version,
+                    track: parameters.track,
 
                     boot_id: None,
 
                     oem: None,
                     oem_version: None,
 
-                    machine_id: Cow::Borrowed(MACHINE_ID),
+                    machine_id: parameters.machine_id,
 
                     update_check: Some(omaha::request::AppUpdateCheck)
                 }

@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::borrow::Cow;
 
 use hard_xml::XmlRead;
 use url::Url;
@@ -19,6 +20,9 @@ fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, omaha::Hash<
                         .map(|a| &a.sha256)
                 });
 
+            // TODO: multiple URLs per package
+            //       not sure if nebraska sends us more than one right now but i suppose this is
+            //       for mirrors?
             let url = app.update_check.urls.get(0)
                 .map(|u| u.join(&pkg.name));
 
@@ -38,15 +42,32 @@ fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, omaha::Hash<
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let client = reqwest::Client::new();
-    let response_text = ue_rs::perform_request(&client).await?;
+
+    ////
+    // request
+    ////
+    let parameters = ue_rs::request::Parameters {
+        app_version: Cow::Borrowed("3340.0.0+nightly-20220823-2100"),
+        machine_id:  Cow::Borrowed("abce671d61774703ac7be60715220bfe"),
+
+        track: Cow::Borrowed("stable")
+    };
+
+    let response_text = ue_rs::request::perform(&client, parameters).await?;
 
     println!("response:\n\t{:#?}", response_text);
     println!();
 
+    ////
+    // parse response
+    ////
     let resp = omaha::Response::from_str(&response_text)?;
 
     let pkgs_to_dl = get_pkgs_to_download(&resp)?;
 
+    ////
+    // download
+    ////
     for (url, expected_sha256) in pkgs_to_dl {
         println!("downloading {}...", url);
 
