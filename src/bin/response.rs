@@ -10,14 +10,14 @@ r#"<?xml version="1.0" encoding="UTF-8"?>
   <app appid="{e96281a6-d1af-4bde-9a0a-97b76e56dc57}" status="ok">
     <updatecheck status="ok">
       <urls>
-        <url codebase="https://update.release.flatcar-linux.net/amd64-usr/3374.2.0/"/>
+        <url codebase="https://update.release.flatcar-linux.net/amd64-usr/3374.2.5/"/>
       </urls>
-      <manifest version="3374.2.0">
+      <manifest version="3374.2.5">
         <packages>
-          <package name="flatcar_production_update.gz" hash="e2jgE9Ky/yeJ1q+GsDh/Hlb37cw=" size="360141900" required="true"/>
+          <package name="flatcar_production_update.gz" hash="quPS8xPVCw/HUCIZfKD4lt9kHr8=" size="364314900" required="true"/>
         </packages>
         <actions>
-          <action event="postinstall" sha256="/kxm4FqtXuc0/qYLo9U2yccqNmEXMsWEdtKJ7nXtPaM=" DisablePayloadBackoff="true"/>
+          <action event="postinstall" sha256="WR2cXX1kIaie+ElHh6ZxYVSOlOD2Ko/JQHvndGNhcMI=" DisablePayloadBackoff="true"/>
         </actions>
       </manifest>
     </updatecheck>
