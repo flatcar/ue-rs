@@ -24,3 +24,10 @@ impl str::FromStr for FileSize {
         usize::from_str(x).map(Self)
     }
 }
+
+#[test]
+fn test_from_bytes() {
+    const TEST_SIZE: usize = 1048576_usize;
+
+    assert_eq!(FileSize::from_bytes(TEST_SIZE).bytes(), TEST_SIZE);
+}
