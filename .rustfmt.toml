@@ -1,0 +1,12 @@
+# Disable reordering package imports alphabetically
+reorder_imports=false
+
+# Disable the granular width settings automatically configured following max_width.
+use_small_heuristics="Off"
+
+# Maximum width of each line.
+max_width=200
+
+# Maximum width of each function call
+# It is needed as use_small_heuristics=Off.
+fn_call_width=80
