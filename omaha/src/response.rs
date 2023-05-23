@@ -8,7 +8,6 @@ use url::Url;
 use crate as omaha;
 use self::omaha::{Sha1, Sha256};
 
-
 // for Manifest and UpdateCheck, we've customised the XmlRead implementation (using `cargo expand`
 // and inlining) so that we can flatten the `packages`, `actions`, and `urls` container tags.
 // this lets us do `update_check.urls[n]` instead of `update_check.urls.urls[n]`.
@@ -30,7 +29,7 @@ pub struct Package<'a> {
     pub required: bool,
 
     #[xml(attr = "sha256")]
-    pub hash_sha256: Option<omaha::Hash<Sha256>>
+    pub hash_sha256: Option<omaha::Hash<Sha256>>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -38,7 +37,7 @@ pub enum ActionEvent {
     PreInstall,
     Install,
     PostInstall,
-    Update
+    Update,
 }
 
 impl fmt::Display for ActionEvent {
@@ -62,7 +61,7 @@ impl FromStr for ActionEvent {
             "postinstall" => ActionEvent::PostInstall,
             "update" => ActionEvent::Update,
 
-            _ => return Err(format!("unknown success action \"{}\"", s))
+            _ => return Err(format!("unknown success action \"{}\"", s)),
         })
     }
 }
@@ -71,7 +70,7 @@ impl FromStr for ActionEvent {
 pub enum SuccessAction {
     Default,
     ExitSilently,
-    ExitSilentlyOnLaunchCommand
+    ExitSilentlyOnLaunchCommand,
 }
 
 impl fmt::Display for SuccessAction {
@@ -93,7 +92,7 @@ impl FromStr for SuccessAction {
             "exitsilently" => SuccessAction::ExitSilently,
             "exitsilentlyonlaunchcmd" => SuccessAction::ExitSilentlyOnLaunchCommand,
 
-            _ => return Err(format!("unknown success action \"{}\"", s))
+            _ => return Err(format!("unknown success action \"{}\"", s)),
         })
     }
 }
@@ -111,7 +110,7 @@ pub struct Action {
     pub disable_payload_backoff: Option<bool>,
 
     #[xml(attr = "successaction")]
-    pub success_action: Option<SuccessAction>
+    pub success_action: Option<SuccessAction>,
 }
 
 #[derive(Debug)]
@@ -363,5 +362,5 @@ pub struct Response<'a> {
     pub protocol_version: Cow<'a, str>,
 
     #[xml(child = "app")]
-    pub apps: Vec<App<'a>>
+    pub apps: Vec<App<'a>>,
 }

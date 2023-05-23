@@ -4,7 +4,6 @@ use std::borrow::Cow;
 use hard_xml::XmlRead;
 use url::Url;
 
-
 fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, omaha::Hash<omaha::Sha256>)>, Box<dyn Error>> {
     let mut to_download: Vec<(Url, omaha::Hash<_>)> = Vec::new();
 
@@ -31,9 +30,9 @@ fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, omaha::Hash<
             match (url, hash_sha256) {
                 (Some(Ok(url)), Some(hash)) => {
                     to_download.push((url, hash.clone()));
-                },
+                }
 
-                _ => ()
+                _ => (),
             }
         }
     }
@@ -50,9 +49,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     ////
     let parameters = ue_rs::request::Parameters {
         app_version: Cow::Borrowed("3340.0.0+nightly-20220823-2100"),
-        machine_id:  Cow::Borrowed("abce671d61774703ac7be60715220bfe"),
+        machine_id: Cow::Borrowed("abce671d61774703ac7be60715220bfe"),
 
-        track: Cow::Borrowed("stable")
+        track: Cow::Borrowed("stable"),
     };
 
     let response_text = ue_rs::request::perform(&client, parameters).await?;

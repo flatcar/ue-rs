@@ -12,7 +12,6 @@ use ct_codecs::{
     Decoder
 };
 
-
 #[derive(PartialEq, Eq, Clone)]
 pub struct Sha1;
 
@@ -22,8 +21,7 @@ pub struct Sha256;
 pub trait HashAlgo {
     const HASH_NAME: &'static str;
 
-    type Output:
-        AsRef<[u8]> + AsMut<[u8]> + Default + Sized + Eq;
+    type Output: AsRef<[u8]> + AsMut<[u8]> + Default + Sized + Eq;
 }
 
 impl HashAlgo for Sha1 {
@@ -52,9 +50,7 @@ impl<T: HashAlgo> fmt::Debug for Hash<T> {
         let hash_hex = Hex::encode_to_string(self.0.as_ref())
             .map_err(|_| fmt::Error)?;
 
-        f.debug_tuple(&*tn)
-            .field(&hash_hex)
-            .finish()
+        f.debug_tuple(&*tn).field(&hash_hex).finish()
     }
 }
 

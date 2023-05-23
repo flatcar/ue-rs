@@ -2,7 +2,6 @@ use std::error::Error;
 
 use ue_rs::download_and_hash;
 
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let client = reqwest::Client::new();
