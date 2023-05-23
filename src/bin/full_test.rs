@@ -12,6 +12,7 @@ fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, omaha::Hash<
         let manifest = &app.update_check.manifest;
 
         for pkg in &manifest.packages {
+            #[rustfmt::skip]
             let hash_sha256 = pkg.hash_sha256
                 .as_ref()
                 .or_else(|| {
@@ -23,6 +24,7 @@ fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, omaha::Hash<
             // TODO: multiple URLs per package
             //       not sure if nebraska sends us more than one right now but i suppose this is
             //       for mirrors?
+            #[rustfmt::skip]
             let url = app.update_check.urls.get(0)
                 .map(|u| u.join(&pkg.name));
 

@@ -122,6 +122,7 @@ pub struct Manifest<'a> {
 }
 
 impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
+    #[rustfmt::skip]
     fn from_reader(
         reader: &mut hard_xml::XmlReader<'__input>,
     ) -> hard_xml::XmlResult<Self> {
@@ -236,6 +237,7 @@ pub struct UpdateCheck<'a> {
 }
 
 impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
+    #[rustfmt::skip]
     fn from_reader(
         reader: &mut hard_xml::XmlReader<'__input>,
     ) -> hard_xml::XmlResult<Self> {

@@ -46,11 +46,13 @@ pub async fn perform<'a>(client: &reqwest::Client, parameters: Parameters<'a>) -
             os: omaha::request::Os {
                 platform: Cow::Borrowed(OS_PLATFORM),
                 version: Cow::Borrowed(OS_VERSION),
+                #[rustfmt::skip]
                 service_pack: Cow::Owned(
                     format!("{}_{}", parameters.app_version, "x86_64")
                 )
             },
 
+            #[rustfmt::skip]
             apps: vec![
                 omaha::request::App {
                     id: APP_ID,
@@ -76,6 +78,7 @@ pub async fn perform<'a>(client: &reqwest::Client, parameters: Parameters<'a>) -
     println!("request body:\n\t{}", req_body);
     println!();
 
+    #[rustfmt::skip]
     let resp = client.post(UPDATE_URL)
         .body(req_body)
         .send()

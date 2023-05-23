@@ -15,6 +15,7 @@ pub async fn download_and_hash<U, W>(client: &reqwest::Client, url: U, mut data:
           W: io::Write
 {
 
+    #[rustfmt::skip]
     let mut res = client.get(url)
         .send()
         .await?;

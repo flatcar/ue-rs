@@ -3,6 +3,7 @@ use std::error::Error;
 use hard_xml::XmlRead;
 use omaha;
 
+#[rustfmt::skip]
 const RESPONSE_XML: &'static str =
 r#"<?xml version="1.0" encoding="UTF-8"?>
 <response protocol="3.0" server="nebraska">
@@ -42,9 +43,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         for pkg in &manifest.packages {
             println!("    package {}:", pkg.name);
 
+            #[rustfmt::skip]
             pkg.hash.as_ref()
                 .map(|h| println!("      sha1: {}", h));
 
+            #[rustfmt::skip]
             let hash_sha256 = pkg.hash_sha256
                 .as_ref()
                 .or_else(|| {
@@ -53,6 +56,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         .map(|a| &a.sha256)
                 });
 
+            #[rustfmt::skip]
             hash_sha256
                 .map(|h| {
                     println!("      sha256: {}", h);

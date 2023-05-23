@@ -1,6 +1,7 @@
 use std::fmt;
 use std::str;
 
+#[rustfmt::skip]
 use ct_codecs::{
     Error as CodecError,
 
@@ -47,6 +48,7 @@ impl<T: HashAlgo> Hash<T> {
 impl<T: HashAlgo> fmt::Debug for Hash<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let tn = format!("Hash<{}>", T::HASH_NAME);
+        #[rustfmt::skip]
         let hash_hex = Hex::encode_to_string(self.0.as_ref())
             .map_err(|_| fmt::Error)?;
 
@@ -58,6 +60,7 @@ impl<T: HashAlgo> fmt::Debug for Hash<T> {
 
 impl<T: HashAlgo> fmt::Display for Hash<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        #[rustfmt::skip]
         let hash_hex = Hex::encode_to_string(self.0.as_ref())
             .map_err(|_| fmt::Error)?;
 
