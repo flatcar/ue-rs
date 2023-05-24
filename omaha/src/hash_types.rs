@@ -1,6 +1,7 @@
 use std::fmt;
 use std::str;
 
+#[rustfmt::skip]
 use ct_codecs::{
     Error as CodecError,
 
@@ -11,7 +12,6 @@ use ct_codecs::{
     Decoder
 };
 
-
 #[derive(PartialEq, Eq, Clone)]
 pub struct Sha1;
 
@@ -21,8 +21,7 @@ pub struct Sha256;
 pub trait HashAlgo {
     const HASH_NAME: &'static str;
 
-    type Output:
-        AsRef<[u8]> + AsMut<[u8]> + Default + Sized + Eq;
+    type Output: AsRef<[u8]> + AsMut<[u8]> + Default + Sized + Eq;
 }
 
 impl HashAlgo for Sha1 {
@@ -47,17 +46,17 @@ impl<T: HashAlgo> Hash<T> {
 impl<T: HashAlgo> fmt::Debug for Hash<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let tn = format!("Hash<{}>", T::HASH_NAME);
+        #[rustfmt::skip]
         let hash_hex = Hex::encode_to_string(self.0.as_ref())
             .map_err(|_| fmt::Error)?;
 
-        f.debug_tuple(&*tn)
-            .field(&hash_hex)
-            .finish()
+        f.debug_tuple(&*tn).field(&hash_hex).finish()
     }
 }
 
 impl<T: HashAlgo> fmt::Display for Hash<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        #[rustfmt::skip]
         let hash_hex = Hex::encode_to_string(self.0.as_ref())
             .map_err(|_| fmt::Error)?;
 

@@ -4,7 +4,6 @@ use std::borrow::Cow;
 use hard_xml::XmlWrite;
 use omaha;
 
-
 //
 // SERVER=https://public.update.flatcar-linux.net/v1/update/
 // GROUP=
@@ -23,7 +22,6 @@ const OS_PLATFORM: &'static str = "CoreOS";
 const OS_VERSION: &'static str = "Chateau";
 
 const APP_ID: omaha::Uuid = omaha::uuid!("{e96281a6-d1af-4bde-9a0a-97b76e56dc57}");
-
 
 pub struct Parameters<'a> {
     pub app_version: Cow<'a, str>,
@@ -46,11 +44,13 @@ pub async fn perform<'a>(client: &reqwest::Client, parameters: Parameters<'a>) -
             os: omaha::request::Os {
                 platform: Cow::Borrowed(OS_PLATFORM),
                 version: Cow::Borrowed(OS_VERSION),
+                #[rustfmt::skip]
                 service_pack: Cow::Owned(
                     format!("{}_{}", parameters.app_version, "x86_64")
-                )
+                ),
             },
 
+            #[rustfmt::skip]
             apps: vec![
                 omaha::request::App {
                     id: APP_ID,
@@ -66,7 +66,7 @@ pub async fn perform<'a>(client: &reqwest::Client, parameters: Parameters<'a>) -
 
                     update_check: Some(omaha::request::AppUpdateCheck)
                 }
-            ]
+            ],
         };
 
         r.to_string()?
@@ -76,6 +76,7 @@ pub async fn perform<'a>(client: &reqwest::Client, parameters: Parameters<'a>) -
     println!("request body:\n\t{}", req_body);
     println!();
 
+    #[rustfmt::skip]
     let resp = client.post(UPDATE_URL)
         .body(req_body)
         .send()
