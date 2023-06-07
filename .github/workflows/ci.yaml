@@ -3,8 +3,8 @@ on:
   pull_request:
 
 jobs:
-  formatting:
-    name: cargo fmt
+  build-test:
+    name: Build and test ue-rs
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -19,3 +19,13 @@ jobs:
         with:
           command: fmt
           args: --all --check
+      - name: Build ue-rs
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --workspace
+      - name: Run unit tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --workspace
