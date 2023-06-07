@@ -44,21 +44,26 @@ macro_rules! uuid {
     }};
 }
 
-#[test]
-fn test_from_uuid() {
-    const TEST_UUID: &str = "67e55044-10b1-426f-9247-bb680e5fe0c8";
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let testid_from_uuid = Uuid::from_uuid(
-        WrappedUuid::parse_str(TEST_UUID)
-            .ok()
-            .unwrap(),
-    );
+    #[test]
+    fn test_from_uuid() {
+        const TEST_UUID: &str = "67e55044-10b1-426f-9247-bb680e5fe0c8";
 
-    let testid_from = Uuid::from(
-        WrappedUuid::parse_str(TEST_UUID)
-            .ok()
-            .unwrap(),
-    );
+        let testid_from_uuid = Uuid::from_uuid(
+            WrappedUuid::parse_str(TEST_UUID)
+                .ok()
+                .unwrap(),
+        );
 
-    assert_eq!(testid_from_uuid.to_string(), testid_from.to_string());
+        let testid_from = Uuid::from(
+            WrappedUuid::parse_str(TEST_UUID)
+                .ok()
+                .unwrap(),
+        );
+
+        assert_eq!(testid_from_uuid.to_string(), testid_from.to_string());
+    }
 }

@@ -24,9 +24,14 @@ impl str::FromStr for FileSize {
     }
 }
 
-#[test]
-fn test_from_bytes() {
-    const TEST_SIZE: usize = 1048576_usize;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    assert_eq!(FileSize::from_bytes(TEST_SIZE).bytes(), TEST_SIZE);
+    #[test]
+    fn test_from_bytes() {
+        const TEST_SIZE: usize = 1048576_usize;
+
+        assert_eq!(FileSize::from_bytes(TEST_SIZE).bytes(), TEST_SIZE);
+    }
 }
