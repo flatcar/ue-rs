@@ -6,14 +6,13 @@ use protobuf::Message;
 
 use update_format_crau::proto;
 
-
 const DELTA_UPDATE_HEADER_SIZE: u64 = 4 + 8 + 8;
 
 #[derive(Debug)]
 struct DeltaUpdateFileHeader {
     magic: [u8; 4],
     file_format_version: u64,
-    manifest_size: u64
+    manifest_size: u64,
 }
 
 impl DeltaUpdateFileHeader {
@@ -27,7 +26,7 @@ fn read_delta_update_header(f: &mut dyn Read) -> Result<DeltaUpdateFileHeader, B
     let mut header = DeltaUpdateFileHeader {
         magic: [0; 4],
         file_format_version: 0,
-        manifest_size: 0
+        manifest_size: 0,
     };
 
     f.read_exact(&mut header.magic)?;
@@ -60,8 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         buf.into_boxed_slice()
     };
 
-    let manifest =
-        proto::DeltaArchiveManifest::parse_from_bytes(&manifest_bytes)?;
+    let manifest = proto::DeltaArchiveManifest::parse_from_bytes(&manifest_bytes)?;
 
     // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     // !!! signature offsets are from the END of the manifest !!!
@@ -76,13 +74,13 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut buf = vec![0u8; sig_size as usize];
             f.read_exact(&mut buf)?;
             Some(buf.into_boxed_slice())
-        },
-        _ => None
+        }
+        _ => None,
     };
 
     let signatures = match signatures_bytes {
         Some(ref bytes) => Some(proto::Signatures::parse_from_bytes(bytes)?),
-        None => None
+        None => None,
     };
 
     println!("{:?}", signatures);
