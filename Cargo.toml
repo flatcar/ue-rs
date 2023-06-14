@@ -16,8 +16,11 @@ url = "2"
 [dependencies.omaha]
 path = "omaha"
 
-[workspace]
+[dependencies.update-format-crau]
+path = "update-format-crau"
 
+[workspace]
 members = [
     "omaha",
+	"update-format-crau"
 ]
