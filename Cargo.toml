@@ -22,5 +22,5 @@ path = "update-format-crau"
 [workspace]
 members = [
     "omaha",
-	"update-format-crau"
+    "update-format-crau"
 ]
