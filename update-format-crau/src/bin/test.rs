@@ -7,6 +7,7 @@ use protobuf::Message;
 use update_format_crau::proto;
 
 const DELTA_UPDATE_HEADER_SIZE: u64 = 4 + 8 + 8;
+const DELTA_UPDATE_FILE_MAGIC: &[u8] = b"CrAU";
 
 #[derive(Debug)]
 struct DeltaUpdateFileHeader {
@@ -30,7 +31,7 @@ fn read_delta_update_header(f: &mut dyn Read) -> Result<DeltaUpdateFileHeader, B
     };
 
     f.read_exact(&mut header.magic)?;
-    if &header.magic != b"CrAU" {
+    if header.magic != DELTA_UPDATE_FILE_MAGIC {
         return Err("bad file magic".into());
     }
 
