@@ -1,19 +1,19 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Ident, LitStr};
+use syn::{Ident, LitStr, ExprPath};
 
 use crate::types::{Field, Type};
 
 pub fn write(tag: &LitStr, ele_name: TokenStream, fields: &[Field]) -> TokenStream {
     let write_attributes = fields.iter().filter_map(|field| match field {
-        Field::Attribute { tag, bind, ty, .. } => Some(write_attrs(tag, bind, ty, &ele_name)),
+        Field::Attribute { tag, bind, ty, with, .. } => Some(write_attrs(tag, bind, ty, with, &ele_name)),
         _ => None,
     });
 
     let write_text = fields.iter().filter_map(|field| match field {
         Field::Text {
-            bind, ty, is_cdata, ..
-        } => Some(write_text(tag, bind, ty, &ele_name, *is_cdata)),
+            bind, ty, with, is_cdata, ..
+        } => Some(write_text(tag, bind, ty, with, &ele_name, *is_cdata)),
         _ => None,
     });
 
@@ -22,9 +22,10 @@ pub fn write(tag: &LitStr, ele_name: TokenStream, fields: &[Field]) -> TokenStre
             tag,
             bind,
             ty,
+            with,
             is_cdata,
             ..
-        } => Some(write_flatten_text(tag, bind, ty, &ele_name, *is_cdata)),
+        } => Some(write_flatten_text(tag, bind, ty, with, &ele_name, *is_cdata)),
         _ => None,
     });
 
@@ -89,8 +90,8 @@ pub fn write(tag: &LitStr, ele_name: TokenStream, fields: &[Field]) -> TokenStre
     }
 }
 
-fn write_attrs(tag: &LitStr, name: &Ident, ty: &Type, ele_name: &TokenStream) -> TokenStream {
-    let to_str = to_str(ty);
+fn write_attrs(tag: &LitStr, name: &Ident, ty: &Type, with: &Option<ExprPath>, ele_name: &TokenStream) -> TokenStream {
+    let to_str = to_str(ty, with);
 
     if ty.is_vec() {
         panic!("`attr` attribute doesn't support Vec.");
@@ -151,10 +152,11 @@ fn write_text(
     tag: &LitStr,
     name: &Ident,
     ty: &Type,
+    with: &Option<ExprPath>,
     ele_name: &TokenStream,
     is_cdata: bool,
 ) -> TokenStream {
-    let to_str = to_str(ty);
+    let to_str = to_str(ty, with);
     let wrtie_fn = if is_cdata {
         quote!(write_cdata_text)
     } else {
@@ -180,10 +182,11 @@ fn write_flatten_text(
     tag: &LitStr,
     name: &Ident,
     ty: &Type,
+    with: &Option<ExprPath>,
     ele_name: &TokenStream,
     is_cdata: bool,
 ) -> TokenStream {
-    let to_str = to_str(ty);
+    let to_str = to_str(ty, with);
 
     if ty.is_vec() {
         quote! {
@@ -217,7 +220,13 @@ fn write_flatten_text(
     }
 }
 
-fn to_str(ty: &Type) -> TokenStream {
+fn to_str(ty: &Type, with: &Option<ExprPath>) -> TokenStream {
+    if let Some(with_mod) = with {
+        return quote! {
+            &#with_mod::to_str(&__value)
+        };
+    }
+
     match &ty {
         Type::CowStr | Type::OptionCowStr | Type::VecCowStr => {
             quote! { __value }
