@@ -13,23 +13,127 @@ use self::omaha::{Sha1, Sha256};
 // this lets us do `update_check.urls[n]` instead of `update_check.urls.urls[n]`.
 // just nicer to use.
 
-#[derive(XmlRead, Debug)]
-#[xml(tag = "package")]
+#[derive(Debug)]
+// #[xml(tag = "package")]
 pub struct Package<'a> {
-    #[xml(attr = "name")]
+    // #[xml(attr = "name")]
     pub name: Cow<'a, str>,
 
-    #[xml(attr = "hash")]
+    // #[xml(attr = "hash")]
     pub hash: Option<omaha::Hash<Sha1>>,
 
-    #[xml(attr = "size")]
+    // #[xml(attr = "size")]
     pub size: omaha::FileSize,
 
-    #[xml(attr = "required")]
+    // #[xml(attr = "required")]
     pub required: bool,
 
-    #[xml(attr = "sha256")]
+    // #[xml(attr = "hash_sha256")]
     pub hash_sha256: Option<omaha::Hash<Sha256>>,
+}
+
+impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Package<'a> {
+    fn from_reader(
+        reader: &mut hard_xml::XmlReader<'__input>,
+    ) -> hard_xml::XmlResult<Self> {
+        use hard_xml::xmlparser::{ElementEnd, Token};
+        use hard_xml::XmlError;
+        let mut __self_name = None;
+        let mut __self_hash = None;
+        let mut __self_size = None;
+        let mut __self_required = None;
+        let mut __self_hash_sha256 = None;
+        reader.read_till_element_start("package")?;
+        while let Some((__key, __value)) = reader.find_attribute()? {
+            match __key {
+                "name" => {
+                    __self_name = Some(__value);
+                }
+                "hash" => {
+                    __self_hash = Some(
+                        <omaha::Hash<Sha1> as std::str::FromStr>::from_str(&__value)
+                            .map_err(|e| XmlError::FromStr(e.into()))?,
+                    );
+                }
+                "size" => {
+                    __self_size = Some(
+                        <omaha::FileSize as std::str::FromStr>::from_str(&__value)
+                            .map_err(|e| XmlError::FromStr(e.into()))?,
+                    );
+                }
+                "required" => {
+                    __self_required = Some(
+                        match &*__value {
+                            "t" | "true" | "y" | "yes" | "on" | "1" => true,
+                            "f" | "false" | "n" | "no" | "off" | "0" => false,
+                            _ => {
+                                <bool as std::str::FromStr>::from_str(&__value)
+                                    .map_err(|e| XmlError::FromStr(e.into()))?
+                            }
+                        },
+                    );
+                }
+                "hash_sha256" => {
+                    __self_hash_sha256 = Some(<omaha::Hash<Sha256>>::from_hex(&__value)
+                            .map_err(|e| XmlError::FromStr(e.into()))?,
+                    );
+                }
+                _key => {}
+            }
+        }
+        if let Token::ElementEnd { end: ElementEnd::Empty, .. }
+            = reader.next().unwrap()?
+        {
+            let __res = Package {
+                name: __self_name
+                    .ok_or(XmlError::MissingField {
+                        name: "Package".to_owned(),
+                        field: "name".to_owned(),
+                    })?,
+                hash: __self_hash,
+                size: __self_size
+                    .ok_or(XmlError::MissingField {
+                        name: "Package".to_owned(),
+                        field: "size".to_owned(),
+                    })?,
+                required: __self_required
+                    .ok_or(XmlError::MissingField {
+                        name: "Package".to_owned(),
+                        field: "required".to_owned(),
+                    })?,
+                hash_sha256: __self_hash_sha256,
+            };
+            return Ok(__res);
+        }
+        while let Some(__tag) = reader.find_element_start(Some("package"))? {
+            match __tag {
+                tag => {
+                    reader.next();
+                    reader.read_to_end(tag)?;
+                }
+            }
+        }
+        let __res = Package {
+            name: __self_name
+                .ok_or(XmlError::MissingField {
+                    name: "Package".to_owned(),
+                    field: "name".to_owned(),
+                })?,
+            hash: __self_hash,
+            size: __self_size
+                .ok_or(XmlError::MissingField {
+                    name: "Package".to_owned(),
+                    field: "size".to_owned(),
+                })?,
+            required: __self_required
+                .ok_or(XmlError::MissingField {
+                    name: "Package".to_owned(),
+                    field: "required".to_owned(),
+                })?,
+            hash_sha256: __self_hash_sha256,
+        };
+        return Ok(__res);
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
