@@ -72,6 +72,7 @@ pub enum Field {
         name: TokenStream,
         bind: Ident,
         ty: Type,
+        with: Option<ExprPath>,
         tag: LitStr,
         default: bool,
     },
@@ -87,6 +88,7 @@ pub enum Field {
         name: TokenStream,
         bind: Ident,
         ty: Type,
+        with: Option<ExprPath>,
         default: bool,
         tags: Vec<LitStr>,
     },
@@ -102,6 +104,7 @@ pub enum Field {
         name: TokenStream,
         bind: Ident,
         ty: Type,
+        with: Option<ExprPath>,
         is_cdata: bool,
     },
     /// Flatten Text
@@ -116,6 +119,7 @@ pub enum Field {
         name: TokenStream,
         bind: Ident,
         ty: Type,
+        with: Option<ExprPath>,
         default: bool,
         tag: LitStr,
         is_cdata: bool,
@@ -260,13 +264,14 @@ impl Field {
     ) -> Option<Field> {
         let span = field.span();
 
-        let attrs = attrs::Field::parse(ctx, field.attrs);
+        let mut attrs = attrs::Field::parse(ctx, field.attrs);
+        let with = attrs.with.take();
         let kind = FieldKind::from_attributes(ctx, attrs, span)?;
 
         let span = field.ty.span();
         let ty = Type::parse(field.ty);
 
-        kind.into_field(ctx, name, bind, ty, span)
+        kind.into_field(ctx, name, bind, ty, with, span)
     }
 }
 
@@ -288,6 +293,7 @@ impl FieldKind {
         name: TokenStream,
         bind: Ident,
         ty: Type,
+        with: Option<ExprPath>,
         span: Span,
     ) -> Option<Field> {
         self.verify_type(ctx, &ty, span).then(|| match self {
@@ -295,6 +301,7 @@ impl FieldKind {
                 name,
                 bind,
                 ty,
+                with,
                 tag,
                 default,
             },
@@ -302,6 +309,7 @@ impl FieldKind {
                 name,
                 bind,
                 ty,
+                with,
                 default,
                 tags,
             },
@@ -313,6 +321,7 @@ impl FieldKind {
                 name,
                 bind,
                 ty,
+                with,
                 default,
                 tag,
                 is_cdata: cdata,
@@ -321,6 +330,7 @@ impl FieldKind {
                 name,
                 bind,
                 ty,
+                with,
                 is_cdata: cdata,
             },
         })

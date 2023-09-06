@@ -1,34 +1,40 @@
 use std::error::Error;
 use std::borrow::Cow;
+use std::path::Path;
 use std::io::prelude::*;
 use std::fs;
 use std::io;
+
+#[macro_use]
+extern crate log;
 
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use hard_xml::XmlRead;
 use argh::FromArgs;
 use url::Url;
 
-fn get_pkgs_to_download(resp: &omaha::Response, glob_set: &GlobSet)
-        -> Result<Vec<(Url, omaha::Hash<omaha::Sha256>)>, Box<dyn Error>> {
-    let mut to_download: Vec<(Url, omaha::Hash<_>)> = Vec::new();
+#[derive(Debug)]
+struct Package<'a> {
+    url: Url,
+    name: Cow<'a, str>,
+    hash: omaha::Hash<omaha::Sha256>
+}
+
+fn get_pkgs_to_download<'a>(resp: &'a omaha::Response, glob_set: &GlobSet)
+        -> Result<Vec<Package<'a>>, Box<dyn Error>> {
+    let mut to_download: Vec<_> = Vec::new();
 
     for app in &resp.apps {
         let manifest = &app.update_check.manifest;
 
         for pkg in &manifest.packages {
             if !glob_set.is_match(&*pkg.name) {
+                info!("package `{}` doesn't match glob pattern, skipping", pkg.name);
                 continue
             }
 
             #[rustfmt::skip]
-            let hash_sha256 = pkg.hash_sha256
-                .as_ref()
-                .or_else(|| {
-                    manifest.actions.iter()
-                        .find(|a| a.event == omaha::response::ActionEvent::PostInstall)
-                        .map(|a| &a.sha256)
-                });
+            let hash_sha256 = pkg.hash_sha256.as_ref();
 
             // TODO: multiple URLs per package
             //       not sure if nebraska sends us more than one right now but i suppose this is
@@ -39,7 +45,15 @@ fn get_pkgs_to_download(resp: &omaha::Response, glob_set: &GlobSet)
 
             match (url, hash_sha256) {
                 (Some(Ok(url)), Some(hash)) => {
-                    to_download.push((url, hash.clone()));
+                    to_download.push(Package {
+                        url,
+                        name: Cow::Borrowed(&pkg.name),
+                        hash: hash.clone()
+                    })
+                }
+
+                (Some(Ok(_)), None) => {
+                    warn!("package `{}` doesn't have a valid SHA256 hash, skipping", pkg.name);
                 }
 
                 _ => (),
@@ -82,6 +96,8 @@ impl Args {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    env_logger::init();
+
     let args: Args = argh::from_env();
     println!("{:?}", args);
 
@@ -94,6 +110,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             io::read_to_string(file)?
         }
     };
+
+    let output_dir = Path::new(&*args.output_dir);
+    if !output_dir.try_exists()? {
+        return Err(format!("output directory `{}` does not exist", args.output_dir).into());
+    }
 
     ////
     // parse response
@@ -110,18 +131,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
     ////
     let client = reqwest::Client::new();
 
-    for (url, expected_sha256) in pkgs_to_dl {
-        println!("downloading {}...", url);
+    for pkg in pkgs_to_dl {
+        println!("downloading {}...", pkg.url);
 
         // TODO: use a file or anything that implements std::io::Write here.
         //       std::io::BufWriter wrapping an std::fs::File is probably the right choice.
         //       std::io::sink() is basically just /dev/null
         let data = std::io::sink();
-        let res = ue_rs::download_and_hash(&client, url, data).await?;
+        let res = ue_rs::download_and_hash(&client, pkg.url, data).await?;
 
-        println!("\texpected sha256:   {}", expected_sha256);
+        println!("\texpected sha256:   {}", pkg.hash);
         println!("\tcalculated sha256: {}", res.hash);
-        println!("\tsha256 match?      {}", expected_sha256 == res.hash);
+        println!("\tsha256 match?      {}", pkg.hash == res.hash);
     }
 
     Ok(())

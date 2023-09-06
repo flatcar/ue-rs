@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Ident, LitStr};
+use syn::{Ident, LitStr, ExprPath};
 
 use crate::types::{Field, StrictMode, Type};
 
@@ -46,10 +46,11 @@ pub fn read(
         Field::Attribute {
             bind,
             ty,
+            with,
             tag,
             name,
             ..
-        } => Some(read_attrs(tag, bind, name, ty, &ele_name)),
+        } => Some(read_attrs(tag, bind, name, ty, with, &ele_name)),
         _ => None,
     });
 
@@ -68,15 +69,16 @@ pub fn read(
         Field::FlattenText {
             bind,
             ty,
+            with,
             tag,
             name,
             ..
-        } => Some(read_flatten_text(tag, bind, name, ty, &ele_name)),
+        } => Some(read_flatten_text(tag, bind, name, ty, with, &ele_name)),
         _ => None,
     });
 
     let read_text_fields = fields.iter().filter_map(|field| match field {
-        Field::Text { bind, ty, name, .. } => Some(read_text(tag, bind, name, ty, &ele_name)),
+        Field::Text { bind, ty, with, name, .. } => Some(read_text(tag, bind, name, ty, with, &ele_name)),
         _ => None,
     });
 
@@ -192,9 +194,10 @@ fn read_attrs(
     bind: &Ident,
     name: &TokenStream,
     ty: &Type,
+    with: &Option<ExprPath>,
     ele_name: &TokenStream,
 ) -> TokenStream {
-    let from_str = from_str(ty);
+    let from_str = from_str(ty, with);
 
     if ty.is_vec() {
         panic!("`attr` attribute doesn't support Vec.");
@@ -216,9 +219,10 @@ fn read_text(
     bind: &Ident,
     name: &TokenStream,
     ty: &Type,
+    with: &Option<ExprPath>,
     ele_name: &TokenStream,
 ) -> TokenStream {
-    let from_str = from_str(ty);
+    let from_str = from_str(ty, with);
 
     if ty.is_vec() {
         panic!("`text` attribute doesn't support Vec.");
@@ -267,9 +271,10 @@ fn read_flatten_text(
     bind: &Ident,
     name: &TokenStream,
     ty: &Type,
+    with: &Option<ExprPath>,
     ele_name: &TokenStream,
 ) -> TokenStream {
-    let from_str = from_str(ty);
+    let from_str = from_str(ty, with);
 
     let read_text = if ty.is_vec() {
         quote! {
@@ -297,7 +302,13 @@ fn read_flatten_text(
     }
 }
 
-fn from_str(ty: &Type) -> TokenStream {
+fn from_str(ty: &Type, with: &Option<ExprPath>) -> TokenStream {
+    if let Some(with_mod) = with {
+        return quote! {
+            #with_mod::from_str(&__value).map_err(|e| XmlError::FromStr(e.into()))?
+        };
+    }
+
     match &ty {
         Type::CowStr | Type::OptionCowStr | Type::VecCowStr => quote! { __value },
         Type::Bool | Type::OptionBool | Type::VecBool => quote! {
