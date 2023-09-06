@@ -58,6 +58,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "atty"
+version = "0.2.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
+dependencies = [
+ "hermit-abi 0.1.19",
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -234,6 +245,19 @@ dependencies = [
 
 [[package]]
 name = "env_logger"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
+dependencies = [
+ "atty",
+ "humantime",
+ "log",
+ "regex",
+ "termcolor",
+]
+
+[[package]]
+name = "env_logger"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85cdab6a89accf66733ad5a1693a4dcced6aeff64602b634530dd73c1f3ee9f0"
@@ -403,12 +427,12 @@ dependencies = [
 [[package]]
 name = "hard-xml"
 version = "1.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b74134bb74033894bf6b22cb9078c5e19bb750bd586f5cea24bc4acf23e9da9a"
 dependencies = [
+ "env_logger 0.8.4",
  "hard-xml-derive",
  "jetscii",
  "lazy_static",
+ "log",
  "memchr",
  "xmlparser",
 ]
@@ -416,8 +440,6 @@ dependencies = [
 [[package]]
 name = "hard-xml-derive"
 version = "1.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f50ce8d120d040bf18a4d8dd75ea96497cc75d285b09e2473e88df57bb20f3ab"
 dependencies = [
  "bitflags 1.3.2",
  "proc-macro2",
@@ -430,6 +452,15 @@ name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
+
+[[package]]
+name = "hermit-abi"
+version = "0.1.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62b467343b94ba476dcb2500d242dadbb39557df889310ac77c5d99100aaac33"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "hermit-abi"
@@ -546,7 +577,7 @@ version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb0889898416213fab133e1d33a0e5858a48177452750691bde3666d0fdbaf8b"
 dependencies = [
- "hermit-abi",
+ "hermit-abi 0.3.2",
  "rustix",
  "windows-sys",
 ]
@@ -719,7 +750,7 @@ version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4161fcb6d602d4d2081af7c3a45852d875a03dd337a6bfdd6e06407b61342a43"
 dependencies = [
- "hermit-abi",
+ "hermit-abi 0.3.2",
  "libc",
 ]
 
@@ -1409,7 +1440,7 @@ name = "ue-rs"
 version = "0.1.0"
 dependencies = [
  "argh",
- "env_logger",
+ "env_logger 0.10.0",
  "globset",
  "hard-xml",
  "log",
