@@ -8,11 +8,14 @@ edition = "2021"
 [dependencies]
 reqwest = "0.11"
 tokio = { version = "1", features = ["full"] }
-hard-xml = "1.15.0"
+hard-xml = "1"
 uuid = "1.2"
 sha2 = "0.10"
 url = "2"
 rsa = { version = "0.9.2", features = ["sha2"] }
+
+env_logger = "0.10"
+log = "0.4"
 argh = "0.1"
 globset = "0.4"
 log = "0.4.20"
