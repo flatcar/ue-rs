@@ -3,7 +3,7 @@ use crate::utils::Context;
 use syn::Attribute;
 use syn::Error;
 use syn::Lit;
-use syn::LitStr;
+use syn::{LitStr, ExprPath};
 use syn::Meta;
 use syn::NestedMeta;
 
@@ -63,6 +63,7 @@ pub(crate) struct Field {
     pub(crate) is_text: bool,
     pub(crate) flatten_text_tag: Option<LitStr>,
     pub(crate) is_cdata: bool,
+    pub(crate) with: Option<ExprPath>,
 }
 
 impl Field {
@@ -73,6 +74,7 @@ impl Field {
         let mut is_text = false;
         let mut flatten_text_tag = None;
         let mut is_cdata = false;
+        let mut with = None;
 
         // TODO can this be handled more cleanly?
         for meta in attrs.iter().filter_map(get_xml_meta).flatten() {
@@ -212,6 +214,16 @@ impl Field {
                         context.push(Error::new_spanned(m.lit, "Expected a string literal."));
                     }
                 }
+                NestedMeta::Meta(Meta::NameValue(m)) if m.path.is_ident("with") => {
+                    if let Lit::Str(lit) = m.lit {
+                        match lit.parse() {
+                            Ok(w) => with = Some(w),
+                            Err(e) => context.push(e),
+                        };
+                    } else {
+                        context.push(Error::new_spanned(m.lit, "Expected a string literal."));
+                    }
+                },
                 _ => (),
             }
         }
@@ -223,6 +235,7 @@ impl Field {
             is_text,
             flatten_text_tag,
             is_cdata,
+            with,
         }
     }
 }
