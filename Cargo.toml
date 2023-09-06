@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 reqwest = "0.11"
 tokio = { version = "1", features = ["full"] }
-hard-xml = "1"
 uuid = "1.2"
 sha2 = "0.10"
 url = "2"
@@ -20,6 +19,9 @@ argh = "0.1"
 globset = "0.4"
 log = "0.4.20"
 protobuf = "3.2.0"
+
+[dependencies.hard-xml]
+path = "vendor/hard-xml"
 
 [dependencies.omaha]
 path = "omaha"
