@@ -62,7 +62,7 @@ struct Args {
     #[argh(option, short = 'i')]
     input_xml: String,
 
-    /// regex pattern to match update URLs.
+    /// glob pattern to match update URLs.
     /// may be specified multiple times.
     #[argh(option, short = 'm')]
     image_match: Vec<String>,
@@ -105,24 +105,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("pkgs:\n\t{:#?}", pkgs_to_dl);
     println!();
 
-    return Ok(());
+    ////
+    // download
+    ////
+    let client = reqwest::Client::new();
 
-    // ////
-    // // download
-    // ////
-    // for (url, expected_sha256) in pkgs_to_dl {
-    //     println!("downloading {}...", url);
+    for (url, expected_sha256) in pkgs_to_dl {
+        println!("downloading {}...", url);
 
-    //     // TODO: use a file or anything that implements std::io::Write here.
-    //     //       std::io::BufWriter wrapping an std::fs::File is probably the right choice.
-    //     //       std::io::sink() is basically just /dev/null
-    //     let data = std::io::sink();
-    //     let res = ue_rs::download_and_hash(&client, url, data).await?;
+        // TODO: use a file or anything that implements std::io::Write here.
+        //       std::io::BufWriter wrapping an std::fs::File is probably the right choice.
+        //       std::io::sink() is basically just /dev/null
+        let data = std::io::sink();
+        let res = ue_rs::download_and_hash(&client, url, data).await?;
 
-    //     println!("\texpected sha256:   {}", expected_sha256);
-    //     println!("\tcalculated sha256: {}", res.hash);
-    //     println!("\tsha256 match?      {}", expected_sha256 == res.hash);
-    // }
+        println!("\texpected sha256:   {}", expected_sha256);
+        println!("\tcalculated sha256: {}", res.hash);
+        println!("\tsha256 match?      {}", expected_sha256 == res.hash);
+    }
 
-    // Ok(())
+    Ok(())
 }
