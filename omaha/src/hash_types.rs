@@ -68,8 +68,23 @@ impl<T: HashAlgo> str::FromStr for Hash<T> {
     type Err = CodecError;
 
     fn from_str(hash_base64: &str) -> Result<Self, Self::Err> {
+        Self::from_base64(hash_base64)
+    }
+}
+
+impl<T: HashAlgo> Hash<T> {
+    #[inline]
+    fn decode<D: Decoder>(hash: &str) -> Result<Self, CodecError> {
         let mut digest = T::Output::default();
-        Base64::decode(digest.as_mut(), hash_base64, None)?;
+        D::decode(digest.as_mut(), hash, None)?;
         Ok(Self(digest))
+    }
+
+    pub fn from_base64(hash_base64: &str) -> Result<Self, CodecError> {
+        Self::decode::<Base64>(hash_base64)
+    }
+
+    pub fn from_hex(hash_hex: &str) -> Result<Self, CodecError> {
+        Self::decode::<Hex>(hash_hex)
     }
 }
