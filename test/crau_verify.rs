@@ -8,7 +8,9 @@ use protobuf::Message;
 use proto::signatures::Signature;
 use update_format_crau::proto;
 
-//use ue_rs::verify_sig;
+use ue_rs::verify_sig;
+use ue_rs::verify_sig::get_public_key_pkcs_pem;
+use ue_rs::verify_sig::KeyType::KeyTypePkcs8;
 
 const DELTA_UPDATE_HEADER_SIZE: u64 = 4 + 8 + 8;
 const DELTA_UPDATE_FILE_MAGIC: &[u8] = b"CrAU";
@@ -89,7 +91,7 @@ fn get_signatures_bytes<'a>(mut f: &'a File, header: &'a DeltaUpdateFileHeader) 
 #[rustfmt::skip]
 // parse_signature_data takes a bytes slice for signature and public key file path.
 // Return only actual data, without version and special fields.
-fn parse_signature_data(sigbytes: &[u8], pubkeyfile: &str) -> Option<Box<[u8]>> {
+fn parse_signature_data(testdata: &[u8], sigbytes: &[u8], pubkeyfile: &str) -> Option<Box<[u8]>> {
     // Signatures has a container of the fields, i.e. version, data, and
     // special fields.
     let sigmessage = match proto::Signatures::parse_from_bytes(sigbytes) {
@@ -103,12 +105,12 @@ fn parse_signature_data(sigbytes: &[u8], pubkeyfile: &str) -> Option<Box<[u8]>> 
     // Return the first valid signature, iterate into the next slot if invalid.
     sigmessage.signatures.iter()
         .find_map(|sig|
-            verify_sig_pubkey(sig, pubkeyfile)
+            verify_sig_pubkey(testdata, sig, pubkeyfile)
             .map(Vec::into_boxed_slice))
 }
 
 // Verify signature with public key
-fn verify_sig_pubkey(sig: &Signature, pubkeyfile: &str) -> Option<Vec<u8>> {
+fn verify_sig_pubkey(testdata: &[u8], sig: &Signature, pubkeyfile: &str) -> Option<Vec<u8>> {
     // The signature version is actually a numeration of the present signatures,
     // with the index starting at 2 if only one signature is present.
     // The Flatcar dev payload has only one signature but
@@ -125,8 +127,8 @@ fn verify_sig_pubkey(sig: &Signature, pubkeyfile: &str) -> Option<Vec<u8>> {
     debug!("data: {:?}", sig.data());
     debug!("special_fields: {:?}", sig.special_fields());
 
-    // TODO: verify signature with pubkey
-    //    _ = verify_sig::verify_rsa_pkcs(testdata, sig.data(), get_public_key_pkcs_pem(pubkeyfile, KeyTypePkcs8));
+    // verify signature with pubkey
+    _ = verify_sig::verify_rsa_pkcs(testdata, sig.data(), get_public_key_pkcs_pem(pubkeyfile, KeyTypePkcs8));
     _ = pubkeyfile;
 
     sigvec.cloned()
@@ -144,8 +146,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Extract signature from header.
     let sigbytes = get_signatures_bytes(&upfile, &header)?;
 
+    const TESTDATA: &str = "test data for verifying signature";
+
     // Parse signature data from the signature containing data, version, special fields.
-    let sigdata = match parse_signature_data(&sigbytes, PUBKEY_FILE) {
+    let sigdata = match parse_signature_data(TESTDATA.as_bytes(), &sigbytes, PUBKEY_FILE) {
         Some(data) => Box::leak(data),
         _ => return Err("unable to parse signature data".into()),
     };
