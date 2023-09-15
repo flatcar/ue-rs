@@ -17,9 +17,10 @@ use url::Url;
 struct Package<'a> {
     url: Url,
     name: Cow<'a, str>,
-    hash: omaha::Hash<omaha::Sha256>
+    hash: omaha::Hash<omaha::Sha256>,
 }
 
+#[rustfmt::skip]
 fn get_pkgs_to_download<'a>(resp: &'a omaha::Response, glob_set: &GlobSet)
         -> Result<Vec<Package<'a>>, Box<dyn Error>> {
     let mut to_download: Vec<_> = Vec::new();
@@ -30,7 +31,7 @@ fn get_pkgs_to_download<'a>(resp: &'a omaha::Response, glob_set: &GlobSet)
         for pkg in &manifest.packages {
             if !glob_set.is_match(&*pkg.name) {
                 info!("package `{}` doesn't match glob pattern, skipping", pkg.name);
-                continue
+                continue;
             }
 
             #[rustfmt::skip]

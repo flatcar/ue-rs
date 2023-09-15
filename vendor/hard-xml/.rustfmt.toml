@@ -1,2 +1,8 @@
 disable_all_formatting = true
-ignore = ["/"]
+# apparently `disable_all_formatting` is going to be deprecated in the future
+# when `ignore` is stabilised, but for the time being the `ignore` directive
+# gives us a warning, so.
+#
+# uncomment at some point in the future??
+#
+# ignore = ["/"]
