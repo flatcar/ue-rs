@@ -9,7 +9,6 @@ use hard_xml::XmlRead;
 use argh::FromArgs;
 use url::Url;
 
-#[rustfmt::skip]
 fn get_pkgs_to_download(resp: &omaha::Response, glob_set: &GlobSet)
         -> Result<Vec<(Url, omaha::Hash<omaha::Sha256>)>, Box<dyn Error>> {
     let mut to_download: Vec<(Url, omaha::Hash<_>)> = Vec::new();
@@ -19,7 +18,7 @@ fn get_pkgs_to_download(resp: &omaha::Response, glob_set: &GlobSet)
 
         for pkg in &manifest.packages {
             if !glob_set.is_match(&*pkg.name) {
-                continue;
+                continue
             }
 
             #[rustfmt::skip]
