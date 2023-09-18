@@ -1,8 +1,7 @@
 use std::error::Error;
 use std::borrow::Cow;
 use std::path::Path;
-use std::io::prelude::*;
-use std::fs;
+use std::fs::File;
 use std::io;
 
 #[macro_use]
@@ -34,13 +33,11 @@ fn get_pkgs_to_download<'a>(resp: &'a omaha::Response, glob_set: &GlobSet)
                 continue;
             }
 
-            #[rustfmt::skip]
             let hash_sha256 = pkg.hash_sha256.as_ref();
 
             // TODO: multiple URLs per package
             //       not sure if nebraska sends us more than one right now but i suppose this is
             //       for mirrors?
-            #[rustfmt::skip]
             let url = app.update_check.urls.get(0)
                 .map(|u| u.join(&pkg.name));
 
@@ -107,7 +104,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let response_text = match &*args.input_xml {
         "-" => io::read_to_string(io::stdin())?,
         path => {
-            let file = fs::File::open(path)?;
+            let file = File::open(path)?;
             io::read_to_string(file)?
         }
     };
@@ -135,11 +132,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for pkg in pkgs_to_dl {
         println!("downloading {}...", pkg.url);
 
-        // TODO: use a file or anything that implements std::io::Write here.
-        //       std::io::BufWriter wrapping an std::fs::File is probably the right choice.
-        //       std::io::sink() is basically just /dev/null
-        let data = std::io::sink();
-        let res = ue_rs::download_and_hash(&client, pkg.url, data).await?;
+        let path = output_dir.join(&*pkg.name);
+        let mut file = File::create(path)?;
+
+        let res = ue_rs::download_and_hash(&client, pkg.url, &mut file).await?;
 
         println!("\texpected sha256:   {}", pkg.hash);
         println!("\tcalculated sha256: {}", res.hash);
