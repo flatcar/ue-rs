@@ -46,4 +46,4 @@ version = "2.4"
 version = "0.13"
 
 [dev-dependencies.env_logger]
-version = "0.8"
+version = "0.10"
