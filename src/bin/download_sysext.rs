@@ -2,6 +2,7 @@ use std::error::Error;
 use std::borrow::Cow;
 use std::path::Path;
 use std::fs::File;
+use std::fs;
 use std::io;
 
 #[macro_use]
@@ -114,6 +115,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         return Err(format!("output directory `{}` does not exist", args.output_dir).into());
     }
 
+    let unverified_dir = output_dir.join(".unverified");
+    fs::create_dir_all(&unverified_dir)?;
+
     ////
     // parse response
     ////
@@ -132,7 +136,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for pkg in pkgs_to_dl {
         println!("downloading {}...", pkg.url);
 
-        let path = output_dir.join(&*pkg.name);
+        let path = unverified_dir.join(&*pkg.name);
         let mut file = File::create(path)?;
 
         let res = ue_rs::download_and_hash(&client, pkg.url, &mut file).await?;
