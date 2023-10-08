@@ -14,10 +14,100 @@ use argh::FromArgs;
 use url::Url;
 
 #[derive(Debug)]
+enum PackageStatus {
+    ToDownload,
+    DownloadIncomplete(omaha::FileSize),
+    BadChecksum,
+    Unverified,
+    BadSignature,
+    Verified
+}
+
+#[derive(Debug)]
 struct Package<'a> {
     url: Url,
     name: Cow<'a, str>,
     hash: omaha::Hash<omaha::Sha256>,
+    size: omaha::FileSize,
+    status: PackageStatus
+}
+
+impl<'a> Package<'a> {
+    fn hash_on_disk(&mut self, path: &Path) -> Result<omaha::Hash<omaha::Sha256>, Box<dyn Error>> {
+        use sha2::{Sha256, Digest};
+
+        let mut file = File::open(path)?;
+        let mut hasher = Sha256::new();
+
+        io::copy(&mut file, &mut hasher)?;
+
+        Ok(omaha::Hash::from_bytes(
+            hasher.finalize().into()
+        ))
+    }
+
+    fn check_download(&mut self, in_dir: &Path) -> Result<(), Box<dyn Error>> {
+        let path = in_dir.join(&*self.name);
+        let md = fs::metadata(&path)?;
+
+        let size_on_disk = md.len() as usize;
+        let expected_size = self.size.bytes();
+
+        if size_on_disk < expected_size {
+            info!("{}: have downloaded {}/{} bytes, will resume", path.display(), size_on_disk, expected_size);
+
+            self.status = PackageStatus::DownloadIncomplete(
+                omaha::FileSize::from_bytes(size_on_disk)
+            );
+            return Ok(());
+        }
+
+        if size_on_disk == expected_size {
+            info!("{}: download complete, checking hash...", path.display());
+            let hash = self.hash_on_disk(&path)?;
+            if self.verify_checksum(hash) {
+                info!("{}: good hash, will continue without re-download", path.display());
+            } else {
+                info!("{}: bad hash, will re-download, path.display()", path.display());
+                self.status = PackageStatus::ToDownload;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn download(&mut self, into_dir: &Path, client: &reqwest::Client) -> Result<(), Box<dyn Error>> {
+        // FIXME: use _range_start for completing downloads
+        let _range_start = match self.status {
+            PackageStatus::ToDownload => 0,
+            PackageStatus::DownloadIncomplete(s) => s.bytes(),
+            _ => return Ok(())
+        };
+
+        info!("downloading {}...", self.url);
+
+        let path = into_dir.join(&*self.name);
+        let mut file = File::create(path)?;
+
+        let res = ue_rs::download_and_hash(&client, self.url.clone(), &mut file).await?;
+
+        self.verify_checksum(res.hash);
+        Ok(())
+    }
+
+    fn verify_checksum(&mut self, calculated: omaha::Hash<omaha::Sha256>) -> bool {
+        debug!("    expected sha256:   {}", self.hash);
+        debug!("    calculated sha256: {}", calculated);
+        debug!("    sha256 match?      {}", self.hash == calculated);
+
+        if self.hash != calculated {
+            self.status = PackageStatus::BadChecksum;
+            return false;
+        } else {
+            self.status = PackageStatus::Unverified;
+            return true;
+        }
+    }
 }
 
 #[rustfmt::skip]
@@ -47,7 +137,9 @@ fn get_pkgs_to_download<'a>(resp: &'a omaha::Response, glob_set: &GlobSet)
                     to_download.push(Package {
                         url,
                         name: Cow::Borrowed(&pkg.name),
-                        hash: hash.clone()
+                        hash: hash.clone(),
+                        size: pkg.size,
+                        status: PackageStatus::ToDownload
                     })
                 }
 
@@ -123,27 +215,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
     ////
     let resp = omaha::Response::from_str(&response_text)?;
 
-    let pkgs_to_dl = get_pkgs_to_download(&resp, &glob_set)?;
+    let mut pkgs_to_dl = get_pkgs_to_download(&resp, &glob_set)?;
 
-    println!("pkgs:\n\t{:#?}", pkgs_to_dl);
-    println!();
+    debug!("pkgs:\n\t{:#?}", pkgs_to_dl);
+    debug!("");
 
     ////
     // download
     ////
     let client = reqwest::Client::new();
 
-    for pkg in pkgs_to_dl {
-        println!("downloading {}...", pkg.url);
+    for pkg in pkgs_to_dl.iter_mut() {
+        pkg.check_download(&unverified_dir)?;
 
-        let path = unverified_dir.join(&*pkg.name);
-        let mut file = File::create(path)?;
-
-        let res = ue_rs::download_and_hash(&client, pkg.url, &mut file).await?;
-
-        println!("\texpected sha256:   {}", pkg.hash);
-        println!("\tcalculated sha256: {}", res.hash);
-        println!("\tsha256 match?      {}", pkg.hash == res.hash);
+        pkg.download(&unverified_dir, &client).await?;
     }
 
     Ok(())
