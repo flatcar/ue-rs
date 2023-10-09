@@ -20,7 +20,7 @@ enum PackageStatus {
     BadChecksum,
     Unverified,
     BadSignature,
-    Verified
+    Verified,
 }
 
 #[derive(Debug)]
@@ -29,10 +29,11 @@ struct Package<'a> {
     name: Cow<'a, str>,
     hash: omaha::Hash<omaha::Sha256>,
     size: omaha::FileSize,
-    status: PackageStatus
+    status: PackageStatus,
 }
 
 impl<'a> Package<'a> {
+    #[rustfmt::skip]
     fn hash_on_disk(&mut self, path: &Path) -> Result<omaha::Hash<omaha::Sha256>, Box<dyn Error>> {
         use sha2::{Sha256, Digest};
 
@@ -46,6 +47,7 @@ impl<'a> Package<'a> {
         ))
     }
 
+    #[rustfmt::skip]
     fn check_download(&mut self, in_dir: &Path) -> Result<(), Box<dyn Error>> {
         let path = in_dir.join(&*self.name);
         let md = fs::metadata(&path)?;
@@ -81,7 +83,7 @@ impl<'a> Package<'a> {
         let _range_start = match self.status {
             PackageStatus::ToDownload => 0,
             PackageStatus::DownloadIncomplete(s) => s.bytes(),
-            _ => return Ok(())
+            _ => return Ok(()),
         };
 
         info!("downloading {}...", self.url);
