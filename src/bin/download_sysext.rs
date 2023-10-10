@@ -68,7 +68,7 @@ impl<'a> Package<'a> {
             if self.verify_checksum(hash) {
                 info!("{}: good hash, will continue without re-download", path.display());
             } else {
-                info!("{}: bad hash, will re-download, path.display()", path.display());
+                info!("{}: bad hash, will re-download", path.display());
                 self.status = PackageStatus::ToDownload;
             }
         }
