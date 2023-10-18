@@ -4,12 +4,27 @@ use std::fs;
 
 use update_format_crau::delta_update;
 
+use argh::FromArgs;
+
 const PUBKEY_FILE: &str = "../src/testdata/public_key_test_pkcs8.pem";
 
+#[derive(FromArgs, Debug)]
+/// A test program for verifying CRAU header of update payloads.
+struct Args {
+    /// source payload path
+    #[argh(option, short = 's')]
+    src_path: String,
+
+    /// destination signature path
+    #[argh(option, short = 'd')]
+    sig_path: String,
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
-    // TODO: parse args using a decent command-line parameter framework
-    let srcpath = std::env::args().nth(1).expect("missing source payload path (second argument)");
-    let sigpath = std::env::args().nth(2).expect("missing destination signature path (third argument)");
+    let args: Args = argh::from_env();
+
+    let srcpath = &args.src_path;
+    let sigpath = &args.sig_path;
 
     // Read update payload from srcpath, read delta update header from the payload.
     let upfile = fs::File::open(srcpath.clone())?;
