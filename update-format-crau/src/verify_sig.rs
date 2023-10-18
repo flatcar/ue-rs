@@ -80,10 +80,10 @@ mod tests {
     use crate::verify_sig::KeyType::{KeyTypePkcs1, KeyTypePkcs8};
 
     const TESTDATA: &str = "test data for verifying signature";
-    const PRIVKEY_PKCS1_PATH: &str = "./src/testdata/private_key_test_pkcs1.pem";
-    const PUBKEY_PKCS1_PATH: &str = "./src/testdata/public_key_test_pkcs1.pem";
-    const PRIVKEY_PKCS8_PATH: &str = "./src/testdata/private_key_test_pkcs8.pem";
-    const PUBKEY_PKCS8_PATH: &str = "./src/testdata/public_key_test_pkcs8.pem";
+    const PRIVKEY_PKCS1_PATH: &str = "../src/testdata/private_key_test_pkcs1.pem";
+    const PUBKEY_PKCS1_PATH: &str = "../src/testdata/public_key_test_pkcs1.pem";
+    const PRIVKEY_PKCS8_PATH: &str = "../src/testdata/private_key_test_pkcs8.pem";
+    const PUBKEY_PKCS8_PATH: &str = "../src/testdata/public_key_test_pkcs8.pem";
 
     #[test]
     fn test_verify_sig() {

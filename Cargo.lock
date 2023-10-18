@@ -1414,7 +1414,6 @@ dependencies = [
  "omaha",
  "protobuf",
  "reqwest",
- "rsa",
  "sha2",
  "tokio",
  "update-format-crau",
@@ -1449,6 +1448,7 @@ version = "0.1.0"
 dependencies = [
  "log",
  "protobuf",
+ "rsa",
 ]
 
 [[package]]
