@@ -13,6 +13,8 @@ use hard_xml::XmlRead;
 use argh::FromArgs;
 use url::Url;
 
+use update_format_crau::delta_update;
+
 #[derive(Debug)]
 enum PackageStatus {
     ToDownload,
@@ -110,6 +112,32 @@ impl<'a> Package<'a> {
             return true;
         }
     }
+
+    fn verify_signature_on_disk(&mut self, from_path: &Path, pubkey_path: &str) -> Result<(), Box<dyn Error>> {
+        let upfile = File::open(from_path)?;
+
+        // Read update payload from file, read delta update header from the payload.
+        let res_data = fs::read_to_string(from_path);
+
+        let header = delta_update::read_delta_update_header(&upfile)?;
+
+        // Extract signature from header.
+        let sigbytes = delta_update::get_signatures_bytes(&upfile, &header)?;
+
+        // Parse signature data from the signature containing data, version, special fields.
+        let _sigdata = match delta_update::parse_signature_data(res_data.unwrap().as_bytes(), &sigbytes, pubkey_path) {
+            Some(data) => data,
+            _ => {
+                self.status = PackageStatus::BadSignature;
+                return Err("unable to parse signature data".into());
+            }
+        };
+
+        println!("Parsed and verified signature data from file {:?}", from_path);
+
+        self.status = PackageStatus::Verified;
+        Ok(())
+    }
 }
 
 #[rustfmt::skip]
@@ -168,6 +196,10 @@ struct Args {
     /// path to the Omaha XML file, or - to read from stdin
     #[argh(option, short = 'i')]
     input_xml: String,
+
+    /// path to the public key file
+    #[argh(option, short = 'p')]
+    pubkey_file: String,
 
     /// glob pattern to match update URLs.
     /// may be specified multiple times.
@@ -231,6 +263,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
         pkg.check_download(&unverified_dir)?;
 
         pkg.download(&unverified_dir, &client).await?;
+
+        let pkg_unverified = unverified_dir.join(&*pkg.name);
+        let pkg_verified = output_dir.join(&*pkg.name);
+
+        match pkg.verify_signature_on_disk(&pkg_unverified, &args.pubkey_file) {
+            Ok(_) => {
+                // move the verified file back from unverified_dir to output_dir
+                fs::rename(&pkg_unverified, &pkg_verified)?;
+            }
+            _ => return Err(format!("unable to verify signature \"{}\"", pkg.name).into()),
+        };
     }
 
     Ok(())

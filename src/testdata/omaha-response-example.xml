@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<response protocol="3.0" server="nebraska">
+  <daystart elapsed_seconds="0"></daystart>
+  <app appid="e96281a6-d1af-4bde-9a0a-97b76e56dc57" status="ok">
+    <ping status="ok"></ping>
+    <updatecheck status="ok">
+      <urls>
+        <url codebase="https://update.release.flatcar-linux.net/amd64-usr/3732.0.0/"></url>
+      </urls>
+      <manifest version="3732.0.0">
+        <packages>
+          <package name="flatcar_production_update.gz" hash="I6DGNAOrJRUxPbCuLw+AITfiVMo=" size="382137917" required="true">
+          </package>
+          <package name="oem-azure.gz" hash="wepxwEV9L2SS1l/ycEZSqWM3dDc=" hash_sha256="3aed3129de50b959a97e4913ba485bd60e72d2bb6aa377d5ed404103f0680043" size="40897503" required="false"></package>
+          <package name="oem-qemu.gz" hash="+06iWWI6gaSlcIHV7pjIEJrE9CA=" hash_sha256="8ab630ee4079ecd5f8f512c05b44fec5e4f8db844db916c67c8d54a575cfe506" size="2282" required="false"></package>
+        </packages>
+        <actions>
+          <action event="postinstall" sha256="stLG3U/o4Ar8TMHFwT/RWB0iNkaWOO6QtLrq6+AHBbA=" DisablePayloadBackoff="true"></action>
+        </actions>
+      </manifest>
+    </updatecheck>
+    <event status="ok"></event>
+  </app>
+</response>
