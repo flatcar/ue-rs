@@ -1,7 +1,7 @@
 use std::io::{Read, Seek, SeekFrom};
 use std::error::Error;
 use std::fs::File;
-use log::debug;
+use log::{error, debug};
 
 use protobuf::Message;
 
@@ -125,8 +125,14 @@ pub fn verify_sig_pubkey(testdata: &[u8], sig: &Signature, pubkeyfile: &str) -> 
     debug!("special_fields: {:?}", sig.special_fields());
 
     // verify signature with pubkey
-    _ = verify_sig::verify_rsa_pkcs(testdata, sig.data(), get_public_key_pkcs_pem(pubkeyfile, KeyTypePkcs8));
-    _ = pubkeyfile;
+    let res_verify = verify_sig::verify_rsa_pkcs(testdata, sig.data(), get_public_key_pkcs_pem(pubkeyfile, KeyTypePkcs8));
+    match res_verify {
+        Ok(res_verify) => res_verify,
+        Err(err) => {
+            error!("verify_rsa_pkcs signature ({}) failed with {}", sig, err);
+            return None;
+        }
+    };
 
     sigvec.cloned()
 }
