@@ -19,6 +19,7 @@ use update_format_crau::delta_update;
 enum PackageStatus {
     ToDownload,
     DownloadIncomplete(omaha::FileSize),
+    DownloadFailed,
     BadChecksum,
     Unverified,
     BadSignature,
@@ -93,7 +94,14 @@ impl<'a> Package<'a> {
         let path = into_dir.join(&*self.name);
         let mut file = File::create(path)?;
 
-        let res = ue_rs::download_and_hash(&client, self.url.clone(), &mut file).await?;
+        let res = match ue_rs::download_and_hash(&client, self.url.clone(), &mut file).await {
+            Ok(ok) => ok,
+            Err(err) => {
+                error!("Downloading failed with error {}", err);
+                self.status = PackageStatus::DownloadFailed;
+                return Err("unable to download data".into());
+            }
+        };
 
         self.verify_checksum(res.hash);
         Ok(())
@@ -262,7 +270,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for pkg in pkgs_to_dl.iter_mut() {
         pkg.check_download(&unverified_dir)?;
 
-        pkg.download(&unverified_dir, &client).await?;
+        match pkg.download(&unverified_dir, &client).await {
+            Ok(_) => (),
+            _ => return Err(format!("unable to download \"{}\"", pkg.name).into()),
+        };
 
         let pkg_unverified = unverified_dir.join(&*pkg.name);
         let pkg_verified = output_dir.join(&*pkg.name);
