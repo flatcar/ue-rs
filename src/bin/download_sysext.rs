@@ -52,6 +52,13 @@ impl<'a> Package<'a> {
     #[rustfmt::skip]
     fn check_download(&mut self, in_dir: &Path) -> Result<(), Box<dyn Error>> {
         let path = in_dir.join(&*self.name);
+
+        if !path.exists() {
+            // skip checking for existing downloads
+            info!("{} does not exist, skipping existing downloads.", path.display());
+            return Ok(());
+        }
+
         let md = fs::metadata(&path)?;
 
         let size_on_disk = md.len() as usize;
