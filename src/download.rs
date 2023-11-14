@@ -1,6 +1,9 @@
 use std::error::Error;
 use std::io::Write;
 use std::io;
+use log::warn;
+
+use reqwest::StatusCode;
 
 use sha2::{Sha256, Digest};
 
@@ -18,6 +21,23 @@ where
     let mut res = client.get(url)
         .send()
         .await?;
+
+    // Return immediately on download failure on the client side.
+    let status = res.status();
+
+    // TODO: handle redirect with retrying with a new URL or Attempt follow.
+    if status.is_redirection() {
+        warn!("redirect with status code {:?}", status);
+    }
+
+    if !status.is_success() {
+        match status {
+            StatusCode::FORBIDDEN | StatusCode::NOT_FOUND => {
+                return Err(format!("cannnot fetch remotely with status code {:?}", status).into());
+            }
+            _ => return Err(format!("general failure with status code {:?}", status).into()),
+        }
+    }
 
     let mut hasher = Sha256::new();
 
