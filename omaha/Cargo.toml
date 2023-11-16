@@ -9,6 +9,7 @@ edition = "2021"
 uuid = "1.2"
 ct-codecs = "1"
 url = "2"
+anyhow = "1.0.75"
 
 [dependencies.hard-xml]
 path = "../vendor/hard-xml"

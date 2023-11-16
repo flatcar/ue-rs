@@ -1,10 +1,10 @@
 use std::fmt;
 use std::str;
 
+use anyhow::{Error as CodecError, anyhow};
+
 #[rustfmt::skip]
 use ct_codecs::{
-    Error as CodecError,
-
     Base64,
     Hex,
 
@@ -82,9 +82,9 @@ impl<T: HashAlgo> Into<Vec<u8>> for Hash<T> {
 
 impl<T: HashAlgo> Hash<T> {
     #[inline]
-    fn decode<D: Decoder>(hash: &str) -> Result<Self, CodecError> {
+    fn decode<D: Decoder>(hash: &str) -> anyhow::Result<Self, CodecError> {
         let mut digest = T::Output::default();
-        D::decode(digest.as_mut(), hash, None)?;
+        D::decode(digest.as_mut(), hash, None).map_err(|_| anyhow!("decode ({}) failed", hash))?;
         Ok(Self(digest))
     }
 

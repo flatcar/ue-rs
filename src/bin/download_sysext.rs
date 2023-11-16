@@ -10,6 +10,7 @@ use std::io::BufReader;
 #[macro_use]
 extern crate log;
 
+use anyhow::{Context, Result, bail};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use hard_xml::XmlRead;
 use argh::FromArgs;
@@ -42,10 +43,12 @@ impl<'a> Package<'a> {
     // Return Sha256 hash of data in the given path.
     // If maxlen is None, a simple read to the end of the file.
     // If maxlen is Some, read only until the given length.
-    fn hash_on_disk(&mut self, path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<omaha::Sha256>, Box<dyn Error>> {
+    fn hash_on_disk(&mut self, path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<omaha::Sha256>> {
         use sha2::{Sha256, Digest};
 
-        let file = File::open(path)?;
+        let file = File::open(path).context({
+            format!("failed to open path({:?})", path.display())
+        })?;
         let mut hasher = Sha256::new();
 
         let filelen = file.metadata().unwrap().len() as usize;
@@ -66,7 +69,7 @@ impl<'a> Package<'a> {
         let mut freader = BufReader::new(file);
         let mut chunklen: usize;
 
-        freader.seek(SeekFrom::Start(0))?;
+        freader.seek(SeekFrom::Start(0)).context("failed to seek(0)".to_string())?;
         while maxlen_to_read > 0 {
             if maxlen_to_read < CHUNKLEN {
                 chunklen = maxlen_to_read;
@@ -76,7 +79,7 @@ impl<'a> Package<'a> {
 
             let mut databuf = vec![0u8; chunklen];
 
-            freader.read_exact(&mut databuf)?;
+            freader.read_exact(&mut databuf).context(format!("failed to read_exact(chunklen {:?})", chunklen))?;
 
             maxlen_to_read -= chunklen;
 
@@ -89,7 +92,7 @@ impl<'a> Package<'a> {
     }
 
     #[rustfmt::skip]
-    fn check_download(&mut self, in_dir: &Path) -> Result<(), Box<dyn Error>> {
+    fn check_download(&mut self, in_dir: &Path) -> Result<()> {
         let path = in_dir.join(&*self.name);
 
         if !path.exists() {
@@ -98,7 +101,9 @@ impl<'a> Package<'a> {
             return Ok(());
         }
 
-        let md = fs::metadata(&path)?;
+        let md = fs::metadata(&path).context({
+            format!("failed to get metadata, path ({:?})", path.display())
+        })?;
 
         let size_on_disk = md.len() as usize;
         let expected_size = self.size.bytes();
@@ -114,7 +119,9 @@ impl<'a> Package<'a> {
 
         if size_on_disk == expected_size {
             info!("{}: download complete, checking hash...", path.display());
-            let hash = self.hash_on_disk(&path, None)?;
+            let hash = self.hash_on_disk(&path, None).context({
+                format!("failed to hash_on_disk, path ({:?})", path.display())
+            })?;
             if self.verify_checksum(hash) {
                 info!("{}: good hash, will continue without re-download", path.display());
             } else {
@@ -126,7 +133,7 @@ impl<'a> Package<'a> {
         Ok(())
     }
 
-    async fn download(&mut self, into_dir: &Path, client: &reqwest::Client) -> Result<(), Box<dyn Error>> {
+    async fn download(&mut self, into_dir: &Path, client: &reqwest::Client) -> Result<()> {
         // FIXME: use _range_start for completing downloads
         let _range_start = match self.status {
             PackageStatus::ToDownload => 0,
@@ -137,14 +144,14 @@ impl<'a> Package<'a> {
         info!("downloading {}...", self.url);
 
         let path = into_dir.join(&*self.name);
-        let mut file = File::create(path)?;
+        let mut file = File::create(path.clone()).context(format!("failed to create path ({:?})", path.display()))?;
 
         let res = match ue_rs::download_and_hash(&client, self.url.clone(), &mut file).await {
             Ok(ok) => ok,
             Err(err) => {
                 error!("Downloading failed with error {}", err);
                 self.status = PackageStatus::DownloadFailed;
-                return Err("unable to download data".into());
+                bail!("unable to download data(url {})", self.url);
             }
         };
 
@@ -166,19 +173,19 @@ impl<'a> Package<'a> {
         }
     }
 
-    fn verify_signature_on_disk(&mut self, from_path: &Path, pubkey_path: &str) -> Result<PathBuf, Box<dyn Error>> {
-        let upfile = File::open(from_path)?;
+    fn verify_signature_on_disk(&mut self, from_path: &Path, pubkey_path: &str) -> Result<PathBuf> {
+        let upfile = File::open(from_path).context(format!("failed to open path ({:?})", from_path.display()))?;
 
         // create a BufReader to pass down to parsing functions.
         let upfreader = &mut BufReader::new(upfile);
 
         // Read update payload from file, read delta update header from the payload.
-        let header = delta_update::read_delta_update_header(upfreader)?;
+        let header = delta_update::read_delta_update_header(upfreader).context(format!("failed to read_delta_update_header path ({:?})", from_path.display()))?;
 
-        let mut delta_archive_manifest = delta_update::get_manifest_bytes(upfreader, &header)?;
+        let mut delta_archive_manifest = delta_update::get_manifest_bytes(upfreader, &header).context(format!("failed to get_manifest_bytes path ({:?})", from_path.display()))?;
 
         // Extract signature from header.
-        let sigbytes = delta_update::get_signatures_bytes(upfreader, &header, &mut delta_archive_manifest)?;
+        let sigbytes = delta_update::get_signatures_bytes(upfreader, &header, &mut delta_archive_manifest).context(format!("failed to get_signatures_bytes path ({:?})", from_path.display()))?;
 
         // tmp dir == "/var/tmp/outdir/.tmp"
         let tmpdirpathbuf = from_path.parent().unwrap().parent().unwrap().join(".tmp");
@@ -187,21 +194,25 @@ impl<'a> Package<'a> {
 
         // Get length of header and data, including header and manifest.
         let header_data_length = delta_update::get_header_data_length(&header, &delta_archive_manifest);
-        let hdhash = self.hash_on_disk(from_path, Some(header_data_length))?;
-        let hdhashvec: Vec<u8> = hdhash.into();
+        let hdhash = self.hash_on_disk(from_path, Some(header_data_length)).context(format!("failed to hash_on_disk path ({:?}) failed", from_path.display()))?;
+        let hdhashvec: Vec<u8> = hdhash.clone().into();
 
         // Extract data blobs into a file, datablobspath.
-        delta_update::get_data_blobs(upfreader, &header, &delta_archive_manifest, datablobspath.as_path())?;
+        delta_update::get_data_blobs(upfreader, &header, &delta_archive_manifest, datablobspath.as_path()).context(format!("failed to get_data_blobs path ({:?})", datablobspath.display()))?;
 
         // Check for hash of data blobs with new_partition_info hash.
         let pinfo_hash = match &delta_archive_manifest.new_partition_info.hash {
             Some(hash) => hash,
-            None => return Err("unable to parse signature data".into()),
+            None => bail!("unable to get new_partition_info hash"),
         };
 
-        let datahash = self.hash_on_disk(datablobspath.as_path(), None)?;
+        let datahash = self.hash_on_disk(datablobspath.as_path(), None).context(format!("failed to hash_on_disk path ({:?})", datablobspath.display()))?;
         if datahash != omaha::Hash::from_bytes(pinfo_hash.as_slice()[..].try_into().unwrap_or_default()) {
-            return Err("data hash mismatch with new_partition_info hash".into());
+            bail!(
+                "mismatch of data hash ({:?}) with new_partition_info hash ({:?})",
+                datahash,
+                pinfo_hash
+            );
         }
 
         // Parse signature data from sig blobs, data blobs, public key, and verify.
@@ -209,7 +220,12 @@ impl<'a> Package<'a> {
             Some(_) => (),
             _ => {
                 self.status = PackageStatus::BadSignature;
-                return Err("unable to parse and verify signature data".into());
+                bail!(
+                    "unable to parse and verify signature, sigbytes ({:?}), hdhash ({:?}), pubkey_path ({:?})",
+                    sigbytes,
+                    hdhash,
+                    pubkey_path
+                );
             }
         };
 
@@ -222,7 +238,7 @@ impl<'a> Package<'a> {
 
 #[rustfmt::skip]
 fn get_pkgs_to_download<'a>(resp: &'a omaha::Response, glob_set: &GlobSet)
-        -> Result<Vec<Package<'a>>, Box<dyn Error>> {
+        -> Result<Vec<Package<'a>>> {
     let mut to_download: Vec<_> = Vec::new();
 
     for app in &resp.apps {

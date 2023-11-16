@@ -1,5 +1,6 @@
 use std::error::Error;
 
+use anyhow::Context;
 use hard_xml::XmlRead;
 use omaha;
 
@@ -29,7 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("{}", RESPONSE_XML);
     println!();
 
-    let resp = omaha::Response::from_str(RESPONSE_XML)?;
+    let resp = omaha::Response::from_str(RESPONSE_XML).context("failed to create response")?;
 
     println!("{:#?}", resp);
     println!();
@@ -66,7 +67,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("      urls:");
 
             for url in &app.update_check.urls {
-                println!("        {}", url.join(&pkg.name)?);
+                println!(
+                    "        {}",
+                    url.join(&pkg.name).context(format!("failed to join URL with {:?}", pkg.name))?
+                );
             }
 
             println!();

@@ -8,6 +8,7 @@ use tempfile;
 
 use update_format_crau::{delta_update, proto};
 
+use anyhow::{Context, Result};
 use argh::FromArgs;
 
 const PUBKEY_FILE: &str = "../src/testdata/public_key_test_pkcs8.pem";
@@ -24,13 +25,13 @@ struct Args {
     sig_path: String,
 }
 
-fn hash_on_disk(path: &Path) -> Result<omaha::Hash<omaha::Sha256>, Box<dyn Error>> {
+fn hash_on_disk(path: &Path) -> Result<omaha::Hash<omaha::Sha256>> {
     use sha2::{Sha256, Digest};
 
-    let mut file = File::open(path)?;
+    let mut file = File::open(path).context(format!("failed to open path({:?})", path.display()))?;
     let mut hasher = Sha256::new();
 
-    io::copy(&mut file, &mut hasher)?;
+    io::copy(&mut file, &mut hasher).context(format!("failed to copy data path ({:?})", path.display()))?;
 
     Ok(omaha::Hash::from_bytes(hasher.finalize().into()))
 }

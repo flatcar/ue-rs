@@ -1,10 +1,11 @@
 use std::error::Error;
 use std::borrow::Cow;
 
+use anyhow::{Context, Result};
 use hard_xml::XmlRead;
 use url::Url;
 
-fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, omaha::Hash<omaha::Sha256>)>, Box<dyn Error>> {
+fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, omaha::Hash<omaha::Sha256>)>> {
     let mut to_download: Vec<(Url, omaha::Hash<_>)> = Vec::new();
 
     for app in &resp.apps {
@@ -44,17 +45,23 @@ fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, omaha::Hash<
 async fn main() -> Result<(), Box<dyn Error>> {
     let client = reqwest::Client::new();
 
+    const APP_VERSION_DEFAULT: &str = "3340.0.0+nightly-20220823-2100";
+    const MACHINE_ID_DEFAULT: &str = "abce671d61774703ac7be60715220bfe";
+    const TRACK_DEFAULT: &str = "stable";
+
     ////
     // request
     ////
     let parameters = ue_rs::request::Parameters {
-        app_version: Cow::Borrowed("3340.0.0+nightly-20220823-2100"),
-        machine_id: Cow::Borrowed("abce671d61774703ac7be60715220bfe"),
+        app_version: Cow::Borrowed(APP_VERSION_DEFAULT),
+        machine_id: Cow::Borrowed(MACHINE_ID_DEFAULT),
 
-        track: Cow::Borrowed("stable"),
+        track: Cow::Borrowed(TRACK_DEFAULT),
     };
 
-    let response_text = ue_rs::request::perform(&client, parameters).await?;
+    let response_text = ue_rs::request::perform(&client, parameters).await.context(format!(
+        "perform({APP_VERSION_DEFAULT}, {MACHINE_ID_DEFAULT}, {TRACK_DEFAULT}) failed"
+    ))?;
 
     println!("response:\n\t{:#?}", response_text);
     println!();
@@ -62,9 +69,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     ////
     // parse response
     ////
-    let resp = omaha::Response::from_str(&response_text)?;
+    let resp = omaha::Response::from_str(&response_text).context("failed to parse response")?;
 
-    let pkgs_to_dl = get_pkgs_to_download(&resp)?;
+    let pkgs_to_dl = get_pkgs_to_download(&resp).context("failed to get packages to download")?;
 
     ////
     // download
@@ -76,7 +83,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         //       std::io::BufWriter wrapping an std::fs::File is probably the right choice.
         //       std::io::sink() is basically just /dev/null
         let data = std::io::sink();
-        let res = ue_rs::download_and_hash(&client, url, data).await?;
+        let res = ue_rs::download_and_hash(&client, url.clone(), data).await.context(format!("download_and_hash({url:?}) failed"))?;
 
         println!("\texpected sha256:   {}", expected_sha256);
         println!("\tcalculated sha256: {}", res.hash);

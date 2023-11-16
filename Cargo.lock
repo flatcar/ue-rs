@@ -27,6 +27,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.75"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a4668cab20f66d8d020e1fbc0ebe47217433c1b6c8f2040faf858554e394ace6"
+
+[[package]]
 name = "argh"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -745,6 +751,7 @@ dependencies = [
 name = "omaha"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "ct-codecs",
  "hard-xml",
  "url",
@@ -1377,6 +1384,7 @@ checksum = "497961ef93d974e23eb6f433eb5fe1b7930b659f06d12dec6fc44a8f554c0bba"
 name = "ue-rs"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "argh",
  "bzip2",
  "env_logger",
@@ -1419,6 +1427,7 @@ dependencies = [
 name = "update-format-crau"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bzip2",
  "log",
  "protobuf",

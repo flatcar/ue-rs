@@ -11,10 +11,10 @@ use self::omaha::{Sha1, Sha256};
 mod sha256_hex {
     use crate as omaha;
     use self::omaha::Sha256;
-    use ct_codecs::Error;
+    use anyhow::Error as CodecError;
 
     #[inline]
-    pub(crate) fn from_str(s: &str) -> Result<omaha::Hash<Sha256>, Error> {
+    pub(crate) fn from_str(s: &str) -> Result<omaha::Hash<Sha256>, CodecError> {
         <omaha::Hash<Sha256>>::from_hex(s)
     }
 }

@@ -1,6 +1,6 @@
-use std::error::Error;
 use std::borrow::Cow;
 
+use anyhow::{Context, Result};
 use hard_xml::XmlWrite;
 use omaha;
 
@@ -30,7 +30,7 @@ pub struct Parameters<'a> {
     pub machine_id: Cow<'a, str>,
 }
 
-pub async fn perform<'a>(client: &reqwest::Client, parameters: Parameters<'a>) -> Result<String, Box<dyn Error>> {
+pub async fn perform<'a>(client: &reqwest::Client, parameters: Parameters<'a>) -> Result<String> {
     let req_body = {
         let r = omaha::Request {
             protocol_version: Cow::Borrowed(PROTOCOL_VERSION),
@@ -69,7 +69,7 @@ pub async fn perform<'a>(client: &reqwest::Client, parameters: Parameters<'a>) -
             ],
         };
 
-        r.to_string()?
+        r.to_string().context("failed to convert to string")?
     };
 
     // TODO: remove
@@ -80,7 +80,8 @@ pub async fn perform<'a>(client: &reqwest::Client, parameters: Parameters<'a>) -
     let resp = client.post(UPDATE_URL)
         .body(req_body)
         .send()
-        .await?;
+        .await
+        .context("client post send({UPDATE_URL}) failed")?;
 
-    Ok(resp.text().await?)
+    Ok(resp.text().await.context("failed to get response")?)
 }
