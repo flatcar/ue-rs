@@ -1,8 +1,12 @@
-use std::io::Write;
+use std::io;
+use std::io::{BufReader, Write};
 use std::error::Error;
 use std::fs;
+use std::fs::File;
+use std::path::Path;
+use tempfile;
 
-use update_format_crau::delta_update;
+use update_format_crau::{delta_update, proto};
 
 use argh::FromArgs;
 
@@ -20,6 +24,17 @@ struct Args {
     sig_path: String,
 }
 
+fn hash_on_disk(path: &Path) -> Result<omaha::Hash<omaha::Sha256>, Box<dyn Error>> {
+    use sha2::{Sha256, Digest};
+
+    let mut file = File::open(path)?;
+    let mut hasher = Sha256::new();
+
+    io::copy(&mut file, &mut hasher)?;
+
+    Ok(omaha::Hash::from_bytes(hasher.finalize().into()))
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Args = argh::from_env();
 
@@ -28,15 +43,32 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Read update payload from srcpath, read delta update header from the payload.
     let upfile = fs::File::open(srcpath.clone())?;
-    let header = delta_update::read_delta_update_header(&upfile)?;
+
+    let freader = &mut BufReader::new(upfile);
+    let header = delta_update::read_delta_update_header(freader)?;
+
+    let mut delta_archive_manifest: proto::DeltaArchiveManifest = Default::default();
 
     // Extract signature from header.
-    let sigbytes = delta_update::get_signatures_bytes(&upfile, &header)?;
-
-    const TESTDATA: &str = "test data for verifying signature";
+    let sigbytes = delta_update::get_signatures_bytes(freader, &header, &mut delta_archive_manifest)?;
 
     // Parse signature data from the signature containing data, version, special fields.
-    let sigdata = match delta_update::parse_signature_data(TESTDATA.as_bytes(), &sigbytes, PUBKEY_FILE) {
+    let tmpdir = tempfile::tempdir()?.into_path();
+    fs::create_dir_all(tmpdir.clone())?;
+
+    let headerdatapath = tmpdir.join("ue_header_data");
+
+    let hdhash = hash_on_disk(headerdatapath.as_path())?;
+    let hdhashvec: Vec<u8> = hdhash.into();
+
+    // Get length of header and data
+    let datablobspath = tmpdir.join("ue_data_blobs");
+
+    // Extract data blobs into file path.
+    delta_update::get_data_blobs(freader, &header, &delta_archive_manifest, datablobspath.as_path())?;
+
+    // Parse signature data from the signature containing data, version, special fields.
+    let sigdata = match delta_update::parse_signature_data(&sigbytes, hdhashvec.as_slice(), PUBKEY_FILE) {
         Some(data) => Box::leak(data),
         _ => return Err("unable to parse signature data".into()),
     };

@@ -1,9 +1,11 @@
 use std::error::Error;
 use std::borrow::Cow;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::fs;
 use std::io;
+use std::io::{Read, Seek, SeekFrom};
+use std::io::BufReader;
 
 #[macro_use]
 extern crate log;
@@ -36,13 +38,49 @@ struct Package<'a> {
 
 impl<'a> Package<'a> {
     #[rustfmt::skip]
-    fn hash_on_disk(&mut self, path: &Path) -> Result<omaha::Hash<omaha::Sha256>, Box<dyn Error>> {
+    // Return Sha256 hash of data in the given path.
+    // If maxlen is None, a simple read to the end of the file.
+    // If maxlen is Some, read only until the given length.
+    fn hash_on_disk(&mut self, path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<omaha::Sha256>, Box<dyn Error>> {
         use sha2::{Sha256, Digest};
 
-        let mut file = File::open(path)?;
+        let file = File::open(path)?;
         let mut hasher = Sha256::new();
 
-        io::copy(&mut file, &mut hasher)?;
+        let filelen = file.metadata().unwrap().len() as usize;
+
+        let mut maxlen_to_read: usize = match maxlen {
+            Some(len) => {
+                if filelen < len {
+                    filelen
+                } else {
+                    len
+                }
+            }
+            None => filelen,
+        };
+
+        const CHUNKLEN: usize = 10485760; // 10M
+
+        let mut freader = BufReader::new(file);
+        let mut chunklen: usize;
+
+        freader.seek(SeekFrom::Start(0))?;
+        while maxlen_to_read > 0 {
+            if maxlen_to_read < CHUNKLEN {
+                chunklen = maxlen_to_read;
+            } else {
+                chunklen = CHUNKLEN;
+            }
+
+            let mut databuf = vec![0u8; chunklen];
+
+            freader.read_exact(&mut databuf)?;
+
+            maxlen_to_read -= chunklen;
+
+            hasher.update(&databuf);
+        }
 
         Ok(omaha::Hash::from_bytes(
             hasher.finalize().into()
@@ -75,7 +113,7 @@ impl<'a> Package<'a> {
 
         if size_on_disk == expected_size {
             info!("{}: download complete, checking hash...", path.display());
-            let hash = self.hash_on_disk(&path)?;
+            let hash = self.hash_on_disk(&path, None)?;
             if self.verify_checksum(hash) {
                 info!("{}: good hash, will continue without re-download", path.display());
             } else {
@@ -120,30 +158,57 @@ impl<'a> Package<'a> {
         }
     }
 
-    fn verify_signature_on_disk(&mut self, from_path: &Path, pubkey_path: &str) -> Result<(), Box<dyn Error>> {
+    fn verify_signature_on_disk(&mut self, from_path: &Path, pubkey_path: &str) -> Result<PathBuf, Box<dyn Error>> {
         let upfile = File::open(from_path)?;
 
-        // Read update payload from file, read delta update header from the payload.
-        let res_data = fs::read_to_string(from_path);
+        // create a BufReader to pass down to parsing functions.
+        let upfreader = &mut BufReader::new(upfile);
 
-        let header = delta_update::read_delta_update_header(&upfile)?;
+        // Read update payload from file, read delta update header from the payload.
+        let header = delta_update::read_delta_update_header(upfreader)?;
+
+        let mut delta_archive_manifest = delta_update::get_manifest_bytes(upfreader, &header)?;
 
         // Extract signature from header.
-        let sigbytes = delta_update::get_signatures_bytes(&upfile, &header)?;
+        let sigbytes = delta_update::get_signatures_bytes(upfreader, &header, &mut delta_archive_manifest)?;
 
-        // Parse signature data from the signature containing data, version, special fields.
-        let _sigdata = match delta_update::parse_signature_data(res_data.unwrap().as_bytes(), &sigbytes, pubkey_path) {
-            Some(data) => data,
+        // tmp dir == "/var/tmp/outdir/.tmp"
+        let tmpdirpathbuf = from_path.parent().unwrap().parent().unwrap().join(".tmp");
+        let tmpdir = tmpdirpathbuf.as_path();
+        let datablobspath = tmpdir.join("ue_data_blobs");
+
+        // Get length of header and data, including header and manifest.
+        let header_data_length = delta_update::get_header_data_length(&header, &delta_archive_manifest);
+        let hdhash = self.hash_on_disk(from_path, Some(header_data_length))?;
+        let hdhashvec: Vec<u8> = hdhash.into();
+
+        // Extract data blobs into a file, datablobspath.
+        delta_update::get_data_blobs(upfreader, &header, &delta_archive_manifest, datablobspath.as_path())?;
+
+        // Check for hash of data blobs with new_partition_info hash.
+        let pinfo_hash = match &delta_archive_manifest.new_partition_info.hash {
+            Some(hash) => hash,
+            None => return Err("unable to parse signature data".into()),
+        };
+
+        let datahash = self.hash_on_disk(datablobspath.as_path(), None)?;
+        if datahash != omaha::Hash::from_bytes(pinfo_hash.as_slice()[..].try_into().unwrap_or_default()) {
+            return Err("data hash mismatch with new_partition_info hash".into());
+        }
+
+        // Parse signature data from sig blobs, data blobs, public key, and verify.
+        match delta_update::parse_signature_data(&sigbytes, hdhashvec.as_slice(), pubkey_path) {
+            Some(_) => (),
             _ => {
                 self.status = PackageStatus::BadSignature;
-                return Err("unable to parse signature data".into());
+                return Err("unable to parse and verify signature data".into());
             }
         };
 
         println!("Parsed and verified signature data from file {:?}", from_path);
 
         self.status = PackageStatus::Verified;
-        Ok(())
+        Ok(datablobspath)
     }
 }
 
@@ -249,7 +314,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let unverified_dir = output_dir.join(".unverified");
+    let temp_dir = output_dir.join(".tmp");
     fs::create_dir_all(&unverified_dir)?;
+    fs::create_dir_all(&temp_dir)?;
 
     ////
     // parse response
@@ -271,17 +338,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         pkg.download(&unverified_dir, &client).await?;
 
+        // Unverified payload is stored in e.g. "output_dir/.unverified/oem.gz".
+        // Verified payload is stored in e.g. "output_dir/oem.raw".
         let pkg_unverified = unverified_dir.join(&*pkg.name);
-        let pkg_verified = output_dir.join(&*pkg.name);
+        let pkg_verified = output_dir.join(pkg_unverified.with_extension("raw").file_name().unwrap_or_default());
 
         match pkg.verify_signature_on_disk(&pkg_unverified, &args.pubkey_file) {
-            Ok(_) => {
-                // move the verified file back from unverified_dir to output_dir
-                fs::rename(&pkg_unverified, &pkg_verified)?;
+            Ok(datablobspath) => {
+                // write extracted data into the final data.
+                fs::rename(datablobspath, pkg_verified.clone())?;
+                debug!("data blobs written into file {:?}", pkg_verified);
             }
             _ => return Err(format!("unable to verify signature \"{}\"", pkg.name).into()),
         };
     }
+
+    // clean up data
+    fs::remove_dir_all(temp_dir)?;
 
     Ok(())
 }

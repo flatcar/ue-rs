@@ -3,6 +3,7 @@ use rsa::pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey};
 use rsa::pkcs8::{DecodePrivateKey, DecodePublicKey};
 use rsa::pkcs1v15;
 use rsa::signature::{SignatureEncoding, Signer, Verifier};
+use rsa::signature::hazmat::PrehashVerifier;
 use rsa::sha2::Sha256;
 use std::{fs, str};
 use std::error::Error;
@@ -30,7 +31,9 @@ pub fn sign_rsa_pkcs(databuf: &[u8], private_key: RsaPrivateKey) -> Result<Vec<u
 
 // Takes a data buffer, signature and a public key, to verify the data
 // with the public key.
-pub fn verify_rsa_pkcs(databuf: &[u8], signature: &[u8], public_key: RsaPublicKey) -> Result<(), Box<dyn Error>> {
+// As databuf is an in-memory buffer, the function has a limitation of max size
+// of the input data, like a few GiB. Going over that, it could result in OOM.
+pub fn verify_rsa_pkcs_buf(databuf: &[u8], signature: &[u8], public_key: RsaPublicKey) -> Result<(), Box<dyn Error>> {
     // Equivalent of:
     //   openssl rsautl -verify -pubin -key |public_key_path|
     //   - in |sig_data| -out |out_hash_data|
@@ -38,6 +41,18 @@ pub fn verify_rsa_pkcs(databuf: &[u8], signature: &[u8], public_key: RsaPublicKe
     let verifying_key = pkcs1v15::VerifyingKey::<Sha256>::new(public_key);
 
     Ok(verifying_key.verify(databuf, &pkcs1v15::Signature::try_from(signature).unwrap())?)
+}
+
+// Takes a data buffer, signature and a public key, to verify the data
+// with the public key.
+// In contrast to verify_rsa_pkcs_buf, the function takes a digest of an input
+// buffer, so it does not have a limitation of max size of input data.
+// It relies on RSA PrehashVerifier.
+// TODO: consider migrating to RSA DigestVerifier.
+pub fn verify_rsa_pkcs_prehash(digestbuf: &[u8], signature: &[u8], public_key: RsaPublicKey) -> Result<(), Box<dyn Error>> {
+    let verifying_key = pkcs1v15::VerifyingKey::<Sha256>::new(public_key);
+
+    Ok(verifying_key.verify_prehash(digestbuf, &pkcs1v15::Signature::try_from(signature).unwrap())?)
 }
 
 pub fn get_private_key_pkcs_pem(private_key_path: &str, key_type: KeyType) -> RsaPrivateKey {
@@ -92,7 +107,7 @@ mod tests {
             panic!("failed to sign data: {:?}", error);
         });
 
-        _ = verify_rsa_pkcs(
+        _ = verify_rsa_pkcs_buf(
             TESTDATA.as_bytes(),
             signature.as_slice(),
             get_public_key_pkcs_pem(PUBKEY_PKCS1_PATH, KeyTypePkcs1),
@@ -106,7 +121,7 @@ mod tests {
             panic!("failed to sign data: {:?}", error);
         });
 
-        _ = verify_rsa_pkcs(
+        _ = verify_rsa_pkcs_buf(
             TESTDATA.as_bytes(),
             signature.as_slice(),
             get_public_key_pkcs_pem(PUBKEY_PKCS8_PATH, KeyTypePkcs8),

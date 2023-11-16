@@ -17,6 +17,8 @@ log = "0.4"
 argh = "0.1"
 globset = "0.4"
 protobuf = "3.2.0"
+bzip2 = "0.4.4"
+tempfile = "3.8.1"
 
 [dependencies.hard-xml]
 path = "vendor/hard-xml"
