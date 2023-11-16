@@ -1,20 +1,28 @@
 use std::error::Error;
 use std::borrow::Cow;
 
+use anyhow::Context;
+
 use ue_rs::request;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let client = reqwest::Client::new();
 
-    let parameters = request::Parameters {
-        app_version: Cow::Borrowed("3340.0.0+nightly-20220823-2100"),
-        machine_id: Cow::Borrowed("abce671d61774703ac7be60715220bfe"),
+    const APP_VERSION_DEFAULT: &str = "3340.0.0+nightly-20220823-2100";
+    const MACHINE_ID_DEFAULT: &str = "abce671d61774703ac7be60715220bfe";
+    const TRACK_DEFAULT: &str = "stable";
 
-        track: Cow::Borrowed("stable"),
+    let parameters = request::Parameters {
+        app_version: Cow::Borrowed(APP_VERSION_DEFAULT),
+        machine_id: Cow::Borrowed(MACHINE_ID_DEFAULT),
+
+        track: Cow::Borrowed(TRACK_DEFAULT),
     };
 
-    let response = request::perform(&client, parameters).await?;
+    let response = request::perform(&client, parameters).await.context(format!(
+        "perform({APP_VERSION_DEFAULT}, {MACHINE_ID_DEFAULT}, {TRACK_DEFAULT}) failed"
+    ))?;
 
     println!("response:\n\t{:#?}", response);
 

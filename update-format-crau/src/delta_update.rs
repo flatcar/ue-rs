@@ -1,10 +1,10 @@
 use std::io::{BufReader, Read, Seek, SeekFrom, Write};
-use std::error::Error;
 use std::fs;
 use std::fs::File;
 use std::path::Path;
 use log::{error, debug};
 use bzip2::read::BzDecoder;
+use anyhow::{Context, Result, bail};
 
 use protobuf::Message;
 
@@ -32,26 +32,26 @@ impl DeltaUpdateFileHeader {
 }
 
 // Read delta update header from the given file, return DeltaUpdateFileHeader.
-pub fn read_delta_update_header(f: &mut BufReader<File>) -> Result<DeltaUpdateFileHeader, Box<dyn Error>> {
+pub fn read_delta_update_header(f: &mut BufReader<File>) -> Result<DeltaUpdateFileHeader> {
     let mut header = DeltaUpdateFileHeader {
         magic: [0; 4],
         file_format_version: 0,
         manifest_size: 0,
     };
 
-    f.read_exact(&mut header.magic)?;
+    f.read_exact(&mut header.magic).context("failed to read header magic")?;
     if header.magic != DELTA_UPDATE_FILE_MAGIC {
-        return Err("bad file magic".into());
+        bail!("bad file magic");
     }
 
     let mut buf = [0u8; 8];
-    f.read_exact(&mut buf)?;
+    f.read_exact(&mut buf).context("failed to read file format version")?;
     header.file_format_version = u64::from_be_bytes(buf);
     if header.file_format_version != 1 {
-        return Err("unsupported file format version".into());
+        bail!("unsupported file format version");
     }
 
-    f.read_exact(&mut buf)?;
+    f.read_exact(&mut buf).context("failed to read manifest size")?;
     header.manifest_size = u64::from_be_bytes(buf);
 
     Ok(header)
@@ -59,21 +59,21 @@ pub fn read_delta_update_header(f: &mut BufReader<File>) -> Result<DeltaUpdateFi
 
 // Take a buffer stream and DeltaUpdateFileHeader,
 // return DeltaArchiveManifest that contains manifest.
-pub fn get_manifest_bytes(f: &mut BufReader<File>, header: &DeltaUpdateFileHeader) -> Result<proto::DeltaArchiveManifest, Box<dyn Error>> {
+pub fn get_manifest_bytes(f: &mut BufReader<File>, header: &DeltaUpdateFileHeader) -> Result<proto::DeltaArchiveManifest> {
     let manifest_bytes = {
         let mut buf = vec![0u8; header.manifest_size as usize];
-        f.read_exact(&mut buf)?;
+        f.read_exact(&mut buf).context("failed to read manifest bytes")?;
         buf.into_boxed_slice()
     };
 
-    let delta_archive_manifest = proto::DeltaArchiveManifest::parse_from_bytes(&manifest_bytes)?;
+    let delta_archive_manifest = proto::DeltaArchiveManifest::parse_from_bytes(&manifest_bytes).context("failed to parse manifest")?;
 
     Ok(delta_archive_manifest)
 }
 
 // Take a buffer stream and DeltaUpdateFileHeader,
 // return a bytes slice of the actual signature data as well as its length.
-pub fn get_signatures_bytes<'a>(f: &'a mut BufReader<File>, header: &'a DeltaUpdateFileHeader, manifest: &mut proto::DeltaArchiveManifest) -> Result<Box<[u8]>, Box<dyn Error>> {
+pub fn get_signatures_bytes<'a>(f: &'a mut BufReader<File>, header: &'a DeltaUpdateFileHeader, manifest: &mut proto::DeltaArchiveManifest) -> Result<Box<[u8]>> {
     // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     // !!! signature offsets are from the END of the manifest !!!
     // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -82,10 +82,10 @@ pub fn get_signatures_bytes<'a>(f: &'a mut BufReader<File>, header: &'a DeltaUpd
 
     let signatures_bytes = match (manifest.signatures_offset, manifest.signatures_size) {
         (Some(sig_offset), Some(sig_size)) => {
-            f.seek(SeekFrom::Start(header.translate_offset(sig_offset)))?;
+            f.seek(SeekFrom::Start(header.translate_offset(sig_offset))).context("failed to seek to start of signature")?;
 
             let mut buf = vec![0u8; sig_size as usize];
-            f.read_exact(&mut buf)?;
+            f.read_exact(&mut buf).context("failed to read signature")?;
             Some(buf.into_boxed_slice())
         }
         _ => None,
@@ -108,9 +108,10 @@ pub fn get_header_data_length(header: &DeltaUpdateFileHeader, manifest: &proto::
 
 // Take a buffer reader, delta file header, manifest as input.
 // Return path to data blobs, without header, manifest, or signatures.
-pub fn get_data_blobs<'a>(f: &'a mut BufReader<File>, header: &'a DeltaUpdateFileHeader, manifest: &proto::DeltaArchiveManifest, tmppath: &Path) -> Result<File, Box<dyn Error>> {
-    fs::create_dir_all(tmppath.parent().unwrap())?;
-    let mut outfile = File::create(tmppath)?;
+pub fn get_data_blobs<'a>(f: &'a mut BufReader<File>, header: &'a DeltaUpdateFileHeader, manifest: &proto::DeltaArchiveManifest, tmpfile: &Path) -> Result<File> {
+    let tmpdir = tmpfile.parent().unwrap();
+    fs::create_dir_all(tmpdir).context(format!("failed to create directory {:?}", tmpdir))?;
+    let mut outfile = File::create(tmpfile).context(format!("failed to create file {:?}", tmpfile))?;
 
     // Read from the beginning of header, which means buffer including only data blobs.
     // It means it is necessary to call header.translate_offset(), in contrast to
@@ -122,20 +123,21 @@ pub fn get_data_blobs<'a>(f: &'a mut BufReader<File>, header: &'a DeltaUpdateFil
 
         let mut partdata = vec![0u8; data_length as usize];
 
-        f.seek(SeekFrom::Start(header.translate_offset(data_offset.into())))?;
-        f.read_exact(&mut partdata)?;
+        let translated_offset = header.translate_offset(data_offset.into());
+        f.seek(SeekFrom::Start(translated_offset)).context(format!("failed to seek at offset {:?}", translated_offset))?;
+        f.read_exact(&mut partdata).context(format!("failed to read data with length {:?}", data_length))?;
 
         // In case of bzip2-compressed chunks, extract.
         if pop.type_.unwrap() == proto::install_operation::Type::REPLACE_BZ.into() {
             let mut bzdecoder = BzDecoder::new(&partdata[..]);
             let mut partdata_unpacked = Vec::new();
-            bzdecoder.read_to_end(&mut partdata_unpacked)?;
+            bzdecoder.read_to_end(&mut partdata_unpacked).context(format!("failed to unpack bzip2ed data at offset {:?}", translated_offset))?;
 
-            outfile.write_all(&partdata_unpacked)?;
+            outfile.write_all(&partdata_unpacked).context(format!("failed to copy unpacked data at offset {:?}", translated_offset))?;
         } else {
-            outfile.write_all(&partdata)?;
+            outfile.write_all(&partdata).context(format!("failed to copy plain data at offset {:?}", translated_offset))?;
         }
-        outfile.flush()?;
+        outfile.flush().context(format!("failed to flush at offset {:?}", translated_offset))?;
     }
 
     Ok(outfile)
@@ -184,11 +186,19 @@ pub fn verify_sig_pubkey(digest: &[u8], sig: &Signature, pubkeyfile: &str) -> Op
     debug!("special_fields: {:?}", sig.special_fields());
 
     // verify signature with pubkey
-    let res_verify = verify_sig::verify_rsa_pkcs_prehash(&digest, sig.data(), get_public_key_pkcs_pem(pubkeyfile, KeyTypePkcs8));
+    let pkcspem_pubkey = match get_public_key_pkcs_pem(pubkeyfile, KeyTypePkcs8) {
+        Ok(key) => key,
+        Err(err) => {
+            error!("failed to get PKCS8 PEM public key ({:?}) with error {:?}", pubkeyfile, err);
+            return None;
+        }
+    };
+
+    let res_verify = verify_sig::verify_rsa_pkcs_prehash(digest, sig.data(), pkcspem_pubkey);
     match res_verify {
         Ok(res_verify) => res_verify,
         Err(err) => {
-            error!("verify_rsa_pkcs signature ({}) failed with {}", sig, err);
+            error!("verify_rsa_pkcs signature ({:?}) failed with error {:?}", sig, err);
             return None;
         }
     };
