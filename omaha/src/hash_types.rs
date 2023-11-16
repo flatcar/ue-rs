@@ -72,6 +72,14 @@ impl<T: HashAlgo> str::FromStr for Hash<T> {
     }
 }
 
+impl<T: HashAlgo> Into<Vec<u8>> for Hash<T> {
+    fn into(self) -> Vec<u8> {
+        let mut vec = Vec::new();
+        vec.append(&mut self.0.as_ref().to_vec());
+        vec
+    }
+}
+
 impl<T: HashAlgo> Hash<T> {
     #[inline]
     fn decode<D: Decoder>(hash: &str) -> Result<Self, CodecError> {
