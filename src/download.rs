@@ -1,7 +1,8 @@
 use anyhow::{Context, Result, bail};
 use std::io::Write;
 use std::io;
-use log::warn;
+use log::info;
+use url::Url;
 
 use reqwest::StatusCode;
 
@@ -16,6 +17,7 @@ pub async fn download_and_hash<U, W>(client: &reqwest::Client, url: U, mut data:
 where
     U: reqwest::IntoUrl + Clone,
     W: io::Write,
+    Url: From<U>,
 {
     let client_url = url.clone();
 
@@ -25,13 +27,14 @@ where
         .await
         .context(format!("client get and send({:?}) failed", client_url.as_str()))?;
 
+    // Redirect was already handled at this point, so there is no need to touch
+    // response or url again. Simply print info and continue.
+    if <U as Into<Url>>::into(client_url) != *res.url() {
+        info!("redirected to URL {:?}", res.url());
+    }
+
     // Return immediately on download failure on the client side.
     let status = res.status();
-
-    // TODO: handle redirect with retrying with a new URL or Attempt follow.
-    if status.is_redirection() {
-        warn!("redirect with status code {:?}", status);
-    }
 
     if !status.is_success() {
         match status {

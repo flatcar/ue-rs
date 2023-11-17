@@ -14,6 +14,7 @@ use anyhow::{Context, Result, bail};
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use hard_xml::XmlRead;
 use argh::FromArgs;
+use reqwest::redirect::Policy;
 use url::Url;
 
 use update_format_crau::delta_update;
@@ -355,7 +356,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     ////
     // download
     ////
-    let client = reqwest::Client::new();
+    // The default policy of reqwest Client supports max 10 attempts on HTTP redirect.
+    let client = reqwest::Client::builder().redirect(Policy::default()).build()?;
 
     for pkg in pkgs_to_dl.iter_mut() {
         pkg.check_download(&unverified_dir)?;
