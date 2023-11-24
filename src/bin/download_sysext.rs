@@ -217,7 +217,7 @@ impl<'a> Package<'a> {
 
         // Parse signature data from sig blobs, data blobs, public key, and verify.
         match delta_update::parse_signature_data(&sigbytes, hdhashvec.as_slice(), pubkey_path) {
-            Some(_) => (),
+            Ok(_) => (),
             _ => {
                 self.status = PackageStatus::BadSignature;
                 bail!(

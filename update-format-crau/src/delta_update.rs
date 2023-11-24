@@ -2,7 +2,7 @@ use std::io::{BufReader, Read, Seek, SeekFrom, Write};
 use std::fs;
 use std::fs::File;
 use std::path::Path;
-use log::{error, debug};
+use log::{debug, info};
 use bzip2::read::BzDecoder;
 use anyhow::{Context, Result, bail};
 
@@ -147,27 +147,36 @@ pub fn get_data_blobs<'a>(f: &'a mut BufReader<File>, header: &'a DeltaUpdateFil
 // parse_signature_data takes bytes slices for signature and digest of data blobs,
 // and path to public key, to parse and verify the signature.
 // Return only actual signature data, without version and special fields.
-pub fn parse_signature_data(sigbytes: &[u8], digest: &[u8], pubkeyfile: &str) -> Option<Box<[u8]>> {
+pub fn parse_signature_data(sigbytes: &[u8], digest: &[u8], pubkeyfile: &str) -> Result<Vec<u8>> {
     // Signatures has a container of the fields, i.e. version, data, and
     // special fields.
     let sigmessage = match proto::Signatures::parse_from_bytes(sigbytes) {
         Ok(data) => data,
-        _ => return None,
+        _ => bail!("failed to parse signature messages"),
     };
 
     // sigmessages.signatures[] has a single element in case of dev update payloads,
     // while it could have multiple elements in case of production update payloads.
     // For now we assume only dev update payloads are supported.
     // Return the first valid signature, iterate into the next slot if invalid.
-    sigmessage.signatures.iter()
-        .find_map(|sig|
-            verify_sig_pubkey(digest, sig, pubkeyfile)
-            .map(Vec::into_boxed_slice))
+    for sig in sigmessage.signatures {
+        match verify_sig_pubkey(digest, &sig, pubkeyfile) {
+            Ok(sbox) => {
+                return Ok(sbox.to_vec());
+            }
+            _ => {
+                info!("failed to verify signature, jumping to the next slot");
+                continue
+            }
+        };
+    }
+
+    bail!("failed to find a valid signature in any slot");
 }
 
 // verify_sig_pubkey verifies signature with the given digest and the public key.
 // Return the verified signature data.
-pub fn verify_sig_pubkey(digest: &[u8], sig: &Signature, pubkeyfile: &str) -> Option<Vec<u8>> {
+pub fn verify_sig_pubkey(digest: &[u8], sig: &Signature, pubkeyfile: &str) -> Result<Box<[u8]>> {
     // The signature version is actually a numeration of the present signatures,
     // with the index starting at 2 if only one signature is present.
     // The Flatcar dev payload has only one signature but
@@ -177,8 +186,8 @@ pub fn verify_sig_pubkey(digest: &[u8], sig: &Signature, pubkeyfile: &str) -> Op
     // for a signature version, as the number could differ in some cases.
     debug!("supported signature version: {:?}", sig.version());
     let sigvec = match &sig.data {
-        Some(sigdata) => Some(sigdata),
-        _ => None,
+        Some(sigdata) => sigdata,
+        _ => bail!("empty signature data, nothing to verify"),
     };
 
     debug!("digest: {:?}", digest);
@@ -189,8 +198,7 @@ pub fn verify_sig_pubkey(digest: &[u8], sig: &Signature, pubkeyfile: &str) -> Op
     let pkcspem_pubkey = match get_public_key_pkcs_pem(pubkeyfile, KeyTypePkcs8) {
         Ok(key) => key,
         Err(err) => {
-            error!("failed to get PKCS8 PEM public key ({:?}) with error {:?}", pubkeyfile, err);
-            return None;
+            bail!("failed to get PKCS8 PEM public key ({:?}) with error {:?}", pubkeyfile, err);
         }
     };
 
@@ -198,10 +206,9 @@ pub fn verify_sig_pubkey(digest: &[u8], sig: &Signature, pubkeyfile: &str) -> Op
     match res_verify {
         Ok(res_verify) => res_verify,
         Err(err) => {
-            error!("verify_rsa_pkcs signature ({:?}) failed with error {:?}", sig, err);
-            return None;
+            bail!("verify_rsa_pkcs signature ({:?}) failed with error {:?}", sig, err);
         }
     };
 
-    sigvec.cloned()
+    Ok(sigvec.clone().into_boxed_slice())
 }
