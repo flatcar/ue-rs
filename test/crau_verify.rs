@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Parse signature data from the signature containing data, version, special fields.
     let sigdata = match delta_update::parse_signature_data(&sigbytes, hdhashvec.as_slice(), PUBKEY_FILE) {
-        Some(data) => Box::leak(data),
+        Ok(data) => data,
         _ => return Err("unable to parse signature data".into()),
     };
 
@@ -78,7 +78,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Store signature into a file.
     let mut sigfile = fs::File::create(sigpath.clone())?;
-    let _ = sigfile.write_all(sigdata);
+    let _ = sigfile.write_all(sigdata.as_slice());
 
     println!("Wrote signature data into file {:?}", sigpath);
 
