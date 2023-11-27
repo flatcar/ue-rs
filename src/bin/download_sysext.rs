@@ -4,7 +4,6 @@ use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::fs;
 use std::io;
-use std::io::{Read, Seek, SeekFrom};
 use std::io::BufReader;
 
 #[macro_use]
@@ -18,6 +17,7 @@ use reqwest::redirect::Policy;
 use url::Url;
 
 use update_format_crau::delta_update;
+use ue_rs::hash_on_disk_sha256;
 
 #[derive(Debug)]
 enum PackageStatus {
@@ -45,51 +45,7 @@ impl<'a> Package<'a> {
     // If maxlen is None, a simple read to the end of the file.
     // If maxlen is Some, read only until the given length.
     fn hash_on_disk(&mut self, path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<omaha::Sha256>> {
-        use sha2::{Sha256, Digest};
-
-        let file = File::open(path).context({
-            format!("failed to open path({:?})", path.display())
-        })?;
-        let mut hasher = Sha256::new();
-
-        let filelen = file.metadata().unwrap().len() as usize;
-
-        let mut maxlen_to_read: usize = match maxlen {
-            Some(len) => {
-                if filelen < len {
-                    filelen
-                } else {
-                    len
-                }
-            }
-            None => filelen,
-        };
-
-        const CHUNKLEN: usize = 10485760; // 10M
-
-        let mut freader = BufReader::new(file);
-        let mut chunklen: usize;
-
-        freader.seek(SeekFrom::Start(0)).context("failed to seek(0)".to_string())?;
-        while maxlen_to_read > 0 {
-            if maxlen_to_read < CHUNKLEN {
-                chunklen = maxlen_to_read;
-            } else {
-                chunklen = CHUNKLEN;
-            }
-
-            let mut databuf = vec![0u8; chunklen];
-
-            freader.read_exact(&mut databuf).context(format!("failed to read_exact(chunklen {:?})", chunklen))?;
-
-            maxlen_to_read -= chunklen;
-
-            hasher.update(&databuf);
-        }
-
-        Ok(omaha::Hash::from_bytes(
-            hasher.finalize().into()
-        ))
+        hash_on_disk_sha256(path, maxlen)
     }
 
     #[rustfmt::skip]
