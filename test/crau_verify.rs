@@ -1,7 +1,6 @@
 use std::io::{BufReader, Write};
 use std::error::Error;
 use std::fs;
-use tempfile;
 
 use update_format_crau::delta_update;
 

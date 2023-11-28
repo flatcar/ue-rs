@@ -2,7 +2,6 @@ use std::borrow::Cow;
 
 use anyhow::{Context, Result};
 use hard_xml::XmlWrite;
-use omaha;
 
 //
 // SERVER=https://public.update.flatcar-linux.net/v1/update/
@@ -13,13 +12,12 @@ use omaha;
 // FLATCAR_RELEASE_APPID={e96281a6-d1af-4bde-9a0a-97b76e56dc57}
 //
 
-const UPDATE_URL: &'static str = "https://public.update.flatcar-linux.net/v1/update/";
-const PROTOCOL_VERSION: &'static str = "3.0";
-// const UPDATER_VERSION_STR: &'static str = "update-engine-0.4.10";
-const UPDATER_VERSION_STR: &'static str = "ue-rs-0.0.0";
+const UPDATE_URL: &str = "https://public.update.flatcar-linux.net/v1/update/";
+const PROTOCOL_VERSION: &str = "3.0";
+const UPDATER_VERSION_STR: &str = "ue-rs-0.0.0";
 
-const OS_PLATFORM: &'static str = "CoreOS";
-const OS_VERSION: &'static str = "Chateau";
+const OS_PLATFORM: &str = "CoreOS";
+const OS_VERSION: &str = "Chateau";
 
 const APP_ID: omaha::Uuid = omaha::uuid!("{e96281a6-d1af-4bde-9a0a-97b76e56dc57}");
 
@@ -83,5 +81,5 @@ pub async fn perform<'a>(client: &reqwest::Client, parameters: Parameters<'a>) -
         .await
         .context("client post send({UPDATE_URL}) failed")?;
 
-    Ok(resp.text().await.context("failed to get response")?)
+    resp.text().await.context("failed to get response")
 }
