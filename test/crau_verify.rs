@@ -1,14 +1,10 @@
-use std::io;
 use std::io::{BufReader, Write};
 use std::error::Error;
 use std::fs;
-use std::fs::File;
-use std::path::Path;
 use tempfile;
 
-use update_format_crau::{delta_update, proto};
+use update_format_crau::delta_update;
 
-use anyhow::{Context, Result};
 use argh::FromArgs;
 
 const PUBKEY_FILE: &str = "../src/testdata/public_key_test_pkcs8.pem";
@@ -25,17 +21,6 @@ struct Args {
     sig_path: String,
 }
 
-fn hash_on_disk(path: &Path) -> Result<omaha::Hash<omaha::Sha256>> {
-    use sha2::{Sha256, Digest};
-
-    let mut file = File::open(path).context(format!("failed to open path({:?})", path.display()))?;
-    let mut hasher = Sha256::new();
-
-    io::copy(&mut file, &mut hasher).context(format!("failed to copy data path ({:?})", path.display()))?;
-
-    Ok(omaha::Hash::from_bytes(hasher.finalize().into()))
-}
-
 fn main() -> Result<(), Box<dyn Error>> {
     let args: Args = argh::from_env();
 
@@ -48,19 +33,20 @@ fn main() -> Result<(), Box<dyn Error>> {
     let freader = &mut BufReader::new(upfile);
     let header = delta_update::read_delta_update_header(freader)?;
 
-    let mut delta_archive_manifest: proto::DeltaArchiveManifest = Default::default();
+    // Parse signature data from the signature containing data, version, special fields.
+    let mut delta_archive_manifest = delta_update::get_manifest_bytes(freader, &header)?;
 
     // Extract signature from header.
     let sigbytes = delta_update::get_signatures_bytes(freader, &header, &mut delta_archive_manifest)?;
 
-    // Parse signature data from the signature containing data, version, special fields.
     let tmpdir = tempfile::tempdir()?.into_path();
     fs::create_dir_all(tmpdir.clone())?;
-
     let headerdatapath = tmpdir.join("ue_header_data");
 
-    let hdhash = hash_on_disk(headerdatapath.as_path())?;
-    let hdhashvec: Vec<u8> = hdhash.into();
+    // Get length of header and data, including header and manifest.
+    let header_data_length = delta_update::get_header_data_length(&header, &delta_archive_manifest);
+    let hdhash = ue_rs::hash_on_disk_sha256(headerdatapath.as_path(), Some(header_data_length))?;
+    let hdhashvec: Vec<u8> = hdhash.clone().into();
 
     // Get length of header and data
     let datablobspath = tmpdir.join("ue_data_blobs");
@@ -71,7 +57,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Parse signature data from the signature containing data, version, special fields.
     let sigdata = match delta_update::parse_signature_data(&sigbytes, hdhashvec.as_slice(), PUBKEY_FILE) {
         Ok(data) => data,
-        _ => return Err("unable to parse signature data".into()),
+        _ => {
+            return Err(format!(
+                "unable to parse and verify signature, sigbytes ({:?}), hdhash ({:?}), pubkey_path ({:?})",
+                sigbytes, hdhash, PUBKEY_FILE,
+            )
+            .into());
+        }
     };
 
     println!("Parsed signature data from file {:?}", srcpath);
