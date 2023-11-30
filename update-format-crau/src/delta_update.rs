@@ -4,7 +4,7 @@ use std::fs::File;
 use std::path::Path;
 use log::{debug, info};
 use bzip2::read::BzDecoder;
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 
 use protobuf::Message;
 
@@ -91,11 +91,11 @@ pub fn get_signatures_bytes<'a>(f: &'a mut BufReader<File>, header: &'a DeltaUpd
         _ => None,
     };
 
-    Ok(signatures_bytes.unwrap())
+    signatures_bytes.ok_or(anyhow!("failed to get signature bytes slice"))
 }
 
 // Return data length, including header and manifest.
-pub fn get_header_data_length(header: &DeltaUpdateFileHeader, manifest: &proto::DeltaArchiveManifest) -> usize {
+pub fn get_header_data_length(header: &DeltaUpdateFileHeader, manifest: &proto::DeltaArchiveManifest) -> Result<usize> {
     // Read from the beginning of the stream, which means the whole buffer including
     // delta update header as well as manifest. That is because data that must be verified
     // with signatures start from the beginning.
@@ -103,13 +103,13 @@ pub fn get_header_data_length(header: &DeltaUpdateFileHeader, manifest: &proto::
     // Payload data structure:
     //  | header | manifest | data blobs | signatures |
 
-    header.translate_offset(manifest.signatures_offset.unwrap()) as usize
+    Ok(header.translate_offset(manifest.signatures_offset.ok_or(anyhow!("no signature offset"))?) as usize)
 }
 
 // Take a buffer reader, delta file header, manifest as input.
 // Return path to data blobs, without header, manifest, or signatures.
 pub fn get_data_blobs<'a>(f: &'a mut BufReader<File>, header: &'a DeltaUpdateFileHeader, manifest: &proto::DeltaArchiveManifest, tmpfile: &Path) -> Result<File> {
-    let tmpdir = tmpfile.parent().unwrap();
+    let tmpdir = tmpfile.parent().ok_or(anyhow!("unable to get parent directory"))?;
     fs::create_dir_all(tmpdir).context(format!("failed to create directory {:?}", tmpdir))?;
     let mut outfile = File::create(tmpfile).context(format!("failed to create file {:?}", tmpfile))?;
 
@@ -118,8 +118,8 @@ pub fn get_data_blobs<'a>(f: &'a mut BufReader<File>, header: &'a DeltaUpdateFil
     // get_header_data_length.
     // Iterate each partition_operations to get data offset and data length.
     for pop in &manifest.partition_operations {
-        let data_offset = pop.data_offset.unwrap();
-        let data_length = pop.data_length.unwrap();
+        let data_offset = pop.data_offset.ok_or(anyhow!("unable to get data offset"))?;
+        let data_length = pop.data_length.ok_or(anyhow!("unable to get data length"))?;
 
         let mut partdata = vec![0u8; data_length as usize];
 
@@ -128,7 +128,7 @@ pub fn get_data_blobs<'a>(f: &'a mut BufReader<File>, header: &'a DeltaUpdateFil
         f.read_exact(&mut partdata).context(format!("failed to read data with length {:?}", data_length))?;
 
         // In case of bzip2-compressed chunks, extract.
-        if pop.type_.unwrap() == proto::install_operation::Type::REPLACE_BZ.into() {
+        if pop.type_.ok_or(anyhow!("unable to get type_ from partition operations"))? == proto::install_operation::Type::REPLACE_BZ.into() {
             let mut bzdecoder = BzDecoder::new(&partdata[..]);
             let mut partdata_unpacked = Vec::new();
             bzdecoder.read_to_end(&mut partdata_unpacked).context(format!("failed to unpack bzip2ed data at offset {:?}", translated_offset))?;

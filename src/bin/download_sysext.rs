@@ -154,7 +154,7 @@ impl<'a> Package<'a> {
         let datablobspath = tmpdir.join("ue_data_blobs");
 
         // Get length of header and data, including header and manifest.
-        let header_data_length = delta_update::get_header_data_length(&header, &delta_archive_manifest);
+        let header_data_length = delta_update::get_header_data_length(&header, &delta_archive_manifest).context("failed to get header data length")?;
         let hdhash = self.hash_on_disk(from_path, Some(header_data_length)).context(format!("failed to hash_on_disk path ({:?}) failed", from_path.display()))?;
         let hdhashvec: Vec<u8> = hdhash.clone().into();
 
