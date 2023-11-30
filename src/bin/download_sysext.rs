@@ -127,10 +127,10 @@ impl<'a> Package<'a> {
 
         if self.hash != calculated {
             self.status = PackageStatus::BadChecksum;
-            return false;
+            false
         } else {
             self.status = PackageStatus::Unverified;
-            return true;
+            true
         }
     }
 
@@ -311,7 +311,7 @@ impl Args {
         let mut builder = GlobSetBuilder::new();
 
         for m in &*self.image_match {
-            builder.add(Glob::new(&*m)?);
+            builder.add(Glob::new(m)?);
         }
 
         builder.build()

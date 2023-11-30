@@ -50,7 +50,7 @@ impl<T: HashAlgo> fmt::Debug for Hash<T> {
         let hash_hex = Hex::encode_to_string(self.0.as_ref())
             .map_err(|_| fmt::Error)?;
 
-        f.debug_tuple(&*tn).field(&hash_hex).finish()
+        f.debug_tuple(&tn).field(&hash_hex).finish()
     }
 }
 
@@ -72,10 +72,10 @@ impl<T: HashAlgo> str::FromStr for Hash<T> {
     }
 }
 
-impl<T: HashAlgo> Into<Vec<u8>> for Hash<T> {
-    fn into(self) -> Vec<u8> {
+impl<T: HashAlgo> From<Hash<T>> for Vec<u8> {
+    fn from(val: Hash<T>) -> Self {
         let mut vec = Vec::new();
-        vec.append(&mut self.0.as_ref().to_vec());
+        vec.append(&mut val.0.as_ref().to_vec());
         vec
     }
 }

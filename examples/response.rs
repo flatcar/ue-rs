@@ -5,7 +5,7 @@ use hard_xml::XmlRead;
 use omaha;
 
 #[rustfmt::skip]
-const RESPONSE_XML: &'static str =
+const RESPONSE_XML: &str =
 r#"<?xml version="1.0" encoding="UTF-8"?>
 <response protocol="3.0" server="nebraska">
   <daystart elapsed_seconds="0"/>
@@ -45,8 +45,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("    package {}:", pkg.name);
 
             #[rustfmt::skip]
-            pkg.hash.as_ref()
-                .map(|h| println!("      sha1: {}", h));
+            if let Some(h) = pkg.hash.as_ref() {
+                println!("      sha1: {}", h);
+            };
 
             #[rustfmt::skip]
             let hash_sha256 = pkg.hash_sha256
