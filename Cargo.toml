@@ -38,3 +38,14 @@ members = [
 [[bin]]
 name = "crau_verify"
 path = "test/crau_verify.rs"
+
+[profile.release]
+# We do some offset calculations for extraction and
+# the generated protobuf code does even more, let's
+# be cautious
+overflow-checks = true
+# Reduce binary size by stripping debug symbols
+strip = true
+# Reduce binary size by using one codegen unit for similar gains as thin LTO
+# (which we had problem with when cross-compiling)
+codegen-units = 1
