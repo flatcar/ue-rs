@@ -21,7 +21,7 @@ use reqwest::redirect::Policy;
 use url::Url;
 
 use update_format_crau::delta_update;
-use ue_rs::hash_on_disk_sha256;
+use ue_rs::hash_on_disk_digest;
 
 #[derive(Debug)]
 enum PackageStatus {
@@ -49,7 +49,7 @@ impl<'a> Package<'a> {
     // If maxlen is None, a simple read to the end of the file.
     // If maxlen is Some, read only until the given length.
     fn hash_on_disk(&mut self, path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<omaha::Sha256>> {
-        hash_on_disk_sha256(path, maxlen)
+        hash_on_disk_digest::<sha2::Sha256>(path, maxlen)
     }
 
     #[rustfmt::skip]
@@ -254,7 +254,7 @@ where
 
     Ok(Package {
         name: Cow::Borrowed(path.file_name().unwrap_or(OsStr::new("fakepackage")).to_str().unwrap_or("fakepackage")),
-        hash: hash_on_disk_sha256(path, None)?,
+        hash: hash_on_disk_digest::<sha2::Sha256>(path, None)?,
         size: FileSize::from_bytes(file.metadata().context(format!("failed to get metadata, path ({:?})", path.display()))?.len() as usize),
         url: input_url.into(),
         status: PackageStatus::Unverified,
