@@ -94,7 +94,7 @@ impl<'a> Package<'a> {
         Ok(())
     }
 
-    async fn download(&mut self, into_dir: &Path, client: &reqwest::Client) -> Result<()> {
+    async fn download(&mut self, into_dir: &Path, client: &reqwest::Client, print_progress: bool) -> Result<()> {
         // FIXME: use _range_start for completing downloads
         let _range_start = match self.status {
             PackageStatus::ToDownload => 0,
@@ -107,7 +107,7 @@ impl<'a> Package<'a> {
         let path = into_dir.join(&*self.name);
         let mut file = File::create(path.clone()).context(format!("failed to create path ({:?})", path.display()))?;
 
-        let res = match ue_rs::download_and_hash(client, self.url.clone(), &mut file).await {
+        let res = match ue_rs::download_and_hash(client, self.url.clone(), &mut file, print_progress).await {
             Ok(ok) => ok,
             Err(err) => {
                 error!("Downloading failed with error {}", err);
@@ -243,14 +243,14 @@ fn get_pkgs_to_download<'a>(resp: &'a omaha::Response, glob_set: &GlobSet)
 }
 
 // Read data from remote URL into File
-async fn fetch_url_to_file<'a, U>(path: &'a Path, input_url: U, client: &'a Client) -> Result<Package<'a>>
+async fn fetch_url_to_file<'a, U>(path: &'a Path, input_url: U, client: &'a Client, print_progress: bool) -> Result<Package<'a>>
 where
     U: reqwest::IntoUrl + From<U> + std::clone::Clone + std::fmt::Debug,
     Url: From<U>,
 {
     let mut file = File::create(path).context(format!("failed to create path ({:?})", path.display()))?;
 
-    ue_rs::download_and_hash(client, input_url.clone(), &mut file).await.context(format!("unable to download data(url {:?})", input_url))?;
+    ue_rs::download_and_hash(client, input_url.clone(), &mut file, print_progress).await.context(format!("unable to download data(url {:?})", input_url))?;
 
     Ok(Package {
         name: Cow::Borrowed(path.file_name().unwrap_or(OsStr::new("fakepackage")).to_str().unwrap_or("fakepackage")),
@@ -261,10 +261,10 @@ where
     })
 }
 
-async fn do_download_verify(pkg: &mut Package<'_>, output_dir: &Path, unverified_dir: &Path, pubkey_file: &str, client: &Client) -> Result<()> {
+async fn do_download_verify(pkg: &mut Package<'_>, output_dir: &Path, unverified_dir: &Path, pubkey_file: &str, client: &Client, print_progress: bool) -> Result<()> {
     pkg.check_download(unverified_dir)?;
 
-    pkg.download(unverified_dir, client).await.context(format!("unable to download \"{:?}\"", pkg.name))?;
+    pkg.download(unverified_dir, client, print_progress).await.context(format!("unable to download \"{:?}\"", pkg.name))?;
 
     // Unverified payload is stored in e.g. "output_dir/.unverified/oem.gz".
     // Verified payload is stored in e.g. "output_dir/oem.raw".
@@ -304,6 +304,10 @@ struct Args {
     /// may be specified multiple times.
     #[argh(option, short = 'm')]
     image_match: Vec<String>,
+
+    /// report download progress
+    #[argh(switch, short = 'v')]
+    print_progress: bool,
 }
 
 impl Args {
@@ -369,6 +373,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 &temp_payload_path,
                 Url::from_str(url.as_str()).context(anyhow!("failed to convert into url ({:?})", url))?,
                 &client,
+                args.print_progress,
             )
             .await?;
             do_download_verify(
@@ -377,6 +382,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 unverified_dir.as_path(),
                 args.pubkey_file.as_str(),
                 &client,
+                args.print_progress,
             )
             .await?;
 
@@ -404,7 +410,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     ////
 
     for pkg in pkgs_to_dl.iter_mut() {
-        do_download_verify(pkg, output_dir, unverified_dir.as_path(), args.pubkey_file.as_str(), &client).await?;
+        do_download_verify(
+            pkg,
+            output_dir,
+            unverified_dir.as_path(),
+            args.pubkey_file.as_str(),
+            &client,
+            args.print_progress,
+        )
+        .await?;
     }
 
     // clean up data

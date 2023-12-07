@@ -13,7 +13,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     println!("fetching {}...", url);
 
     let data = Vec::new();
-    let res = download_and_hash(&client, url, data).await?;
+    let res = download_and_hash(&client, url, data, false).await?;
 
     println!("hash: {}", res.hash);
 

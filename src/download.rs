@@ -57,7 +57,7 @@ pub fn hash_on_disk_sha256(path: &Path, maxlen: Option<usize>) -> Result<omaha::
     Ok(omaha::Hash::from_bytes(hasher.finalize().into()))
 }
 
-pub async fn download_and_hash<U, W>(client: &reqwest::Client, url: U, mut data: W) -> Result<DownloadResult<W>>
+pub async fn download_and_hash<U, W>(client: &reqwest::Client, url: U, mut data: W, print_progress: bool) -> Result<DownloadResult<W>>
 where
     U: reqwest::IntoUrl + Clone,
     W: io::Write,
@@ -100,14 +100,15 @@ where
         hasher.update(&chunk);
         data.write_all(&chunk).context("failed to write_all chunk")?;
 
-        // TODO: better way to report progress?
-        print!(
-            "\rread {}/{} ({:3}%)",
-            bytes_read,
-            bytes_to_read,
-            ((bytes_read as f32 / bytes_to_read as f32) * 100.0f32).floor()
-        );
-        io::stdout().flush().context("failed to flush stdout")?;
+        if print_progress {
+            print!(
+                "\rread {}/{} ({:3}%)",
+                bytes_read,
+                bytes_to_read,
+                ((bytes_read as f32 / bytes_to_read as f32) * 100.0f32).floor()
+            );
+            io::stdout().flush().context("failed to flush stdout")?;
+        }
     }
 
     data.flush().context("failed to flush data")?;

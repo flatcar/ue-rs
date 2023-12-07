@@ -83,7 +83,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         //       std::io::BufWriter wrapping an std::fs::File is probably the right choice.
         //       std::io::sink() is basically just /dev/null
         let data = std::io::sink();
-        let res = ue_rs::download_and_hash(&client, url.clone(), data).await.context(format!("download_and_hash({url:?}) failed"))?;
+        let res = ue_rs::download_and_hash(&client, url.clone(), data, false).await.context(format!("download_and_hash({url:?}) failed"))?;
 
         println!("\texpected sha256:   {}", expected_sha256);
         println!("\tcalculated sha256: {}", res.hash);
