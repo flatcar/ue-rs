@@ -28,7 +28,7 @@ pub struct Parameters<'a> {
     pub machine_id: Cow<'a, str>,
 }
 
-pub async fn perform<'a>(client: &reqwest::Client, parameters: Parameters<'a>) -> Result<String> {
+pub fn perform<'a>(client: &reqwest::blocking::Client, parameters: Parameters<'a>) -> Result<String> {
     let req_body = {
         let r = omaha::Request {
             protocol_version: Cow::Borrowed(PROTOCOL_VERSION),
@@ -78,8 +78,7 @@ pub async fn perform<'a>(client: &reqwest::Client, parameters: Parameters<'a>) -
     let resp = client.post(UPDATE_URL)
         .body(req_body)
         .send()
-        .await
         .context("client post send({UPDATE_URL}) failed")?;
 
-    resp.text().await.context("failed to get response")
+    resp.text().context("failed to get response")
 }

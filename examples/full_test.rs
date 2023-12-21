@@ -41,9 +41,8 @@ fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, omaha::Hash<
     Ok(to_download)
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let client = reqwest::Client::new();
+fn main() -> Result<(), Box<dyn Error>> {
+    let client = reqwest::blocking::Client::new();
 
     const APP_VERSION_DEFAULT: &str = "3340.0.0+nightly-20220823-2100";
     const MACHINE_ID_DEFAULT: &str = "abce671d61774703ac7be60715220bfe";
@@ -59,7 +58,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         track: Cow::Borrowed(TRACK_DEFAULT),
     };
 
-    let response_text = ue_rs::request::perform(&client, parameters).await.context(format!(
+    let response_text = ue_rs::request::perform(&client, parameters).context(format!(
         "perform({APP_VERSION_DEFAULT}, {MACHINE_ID_DEFAULT}, {TRACK_DEFAULT}) failed"
     ))?;
 
@@ -79,11 +78,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for (url, expected_sha256) in pkgs_to_dl {
         println!("downloading {}...", url);
 
-        // TODO: use a file or anything that implements std::io::Write here.
-        //       std::io::BufWriter wrapping an std::fs::File is probably the right choice.
-        //       std::io::sink() is basically just /dev/null
-        let data = std::io::sink();
-        let res = ue_rs::download_and_hash(&client, url.clone(), data, false).await.context(format!("download_and_hash({url:?}) failed"))?;
+        let tempdir = tempfile::tempdir()?;
+        let path = tempdir.path().join("tmpfile");
+        let res = ue_rs::download_and_hash(&client, url.clone(), &path, false).context(format!("download_and_hash({url:?}) failed"))?;
+        tempdir.close()?;
 
         println!("\texpected sha256:   {}", expected_sha256);
         println!("\tcalculated sha256: {}", res.hash);

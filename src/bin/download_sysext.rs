@@ -16,7 +16,7 @@ use argh::FromArgs;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use hard_xml::XmlRead;
 use omaha::FileSize;
-use reqwest::Client;
+use reqwest::blocking::Client;
 use reqwest::redirect::Policy;
 use url::Url;
 
@@ -94,7 +94,7 @@ impl<'a> Package<'a> {
         Ok(())
     }
 
-    async fn download(&mut self, into_dir: &Path, client: &reqwest::Client, print_progress: bool) -> Result<()> {
+    fn download(&mut self, into_dir: &Path, client: &Client, print_progress: bool) -> Result<()> {
         // FIXME: use _range_start for completing downloads
         let _range_start = match self.status {
             PackageStatus::ToDownload => 0,
@@ -105,9 +105,7 @@ impl<'a> Package<'a> {
         info!("downloading {}...", self.url);
 
         let path = into_dir.join(&*self.name);
-        let mut file = File::create(path.clone()).context(format!("failed to create path ({:?})", path.display()))?;
-
-        let res = match ue_rs::download_and_hash(client, self.url.clone(), &mut file, print_progress).await {
+        let res = match ue_rs::download_and_hash(client, self.url.clone(), &path, print_progress) {
             Ok(ok) => ok,
             Err(err) => {
                 error!("Downloading failed with error {}", err);
@@ -243,28 +241,26 @@ fn get_pkgs_to_download<'a>(resp: &'a omaha::Response, glob_set: &GlobSet)
 }
 
 // Read data from remote URL into File
-async fn fetch_url_to_file<'a, U>(path: &'a Path, input_url: U, client: &'a Client, print_progress: bool) -> Result<Package<'a>>
+fn fetch_url_to_file<'a, U>(path: &'a Path, input_url: U, client: &'a Client, print_progress: bool) -> Result<Package<'a>>
 where
     U: reqwest::IntoUrl + From<U> + std::clone::Clone + std::fmt::Debug,
     Url: From<U>,
 {
-    let mut file = File::create(path).context(format!("failed to create path ({:?})", path.display()))?;
-
-    ue_rs::download_and_hash(client, input_url.clone(), &mut file, print_progress).await.context(format!("unable to download data(url {:?})", input_url))?;
+    let r = ue_rs::download_and_hash(client, input_url.clone(), path, print_progress).context(format!("unable to download data(url {:?})", input_url))?;
 
     Ok(Package {
         name: Cow::Borrowed(path.file_name().unwrap_or(OsStr::new("fakepackage")).to_str().unwrap_or("fakepackage")),
-        hash: hash_on_disk_sha256(path, None)?,
-        size: FileSize::from_bytes(file.metadata().context(format!("failed to get metadata, path ({:?})", path.display()))?.len() as usize),
+        hash: r.hash,
+        size: FileSize::from_bytes(r.data.metadata().context(format!("failed to get metadata, path ({:?})", path.display()))?.len() as usize),
         url: input_url.into(),
         status: PackageStatus::Unverified,
     })
 }
 
-async fn do_download_verify(pkg: &mut Package<'_>, output_dir: &Path, unverified_dir: &Path, pubkey_file: &str, client: &Client, print_progress: bool) -> Result<()> {
+fn do_download_verify(pkg: &mut Package<'_>, output_dir: &Path, unverified_dir: &Path, pubkey_file: &str, client: &Client, print_progress: bool) -> Result<()> {
     pkg.check_download(unverified_dir)?;
 
-    pkg.download(unverified_dir, client, print_progress).await.context(format!("unable to download \"{:?}\"", pkg.name))?;
+    pkg.download(unverified_dir, client, print_progress).context(format!("unable to download \"{:?}\"", pkg.name))?;
 
     // Unverified payload is stored in e.g. "output_dir/.unverified/oem.gz".
     // Verified payload is stored in e.g. "output_dir/oem.raw".
@@ -322,8 +318,7 @@ impl Args {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
     let args: Args = argh::from_env();
@@ -374,8 +369,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 Url::from_str(url.as_str()).context(anyhow!("failed to convert into url ({:?})", url))?,
                 &client,
                 args.print_progress,
-            )
-            .await?;
+            )?;
             do_download_verify(
                 &mut pkg_fake,
                 output_dir,
@@ -383,8 +377,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 args.pubkey_file.as_str(),
                 &client,
                 args.print_progress,
-            )
-            .await?;
+            )?;
 
             // verify only a fake package, early exit and skip the rest.
             return Ok(());
@@ -417,8 +410,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             args.pubkey_file.as_str(),
             &client,
             args.print_progress,
-        )
-        .await?;
+        )?;
     }
 
     // clean up data
