@@ -1,18 +1,18 @@
 use anyhow::{Context, Result, bail};
-use std::io::{BufReader, Read, Seek, SeekFrom, Write};
-use std::io;
+use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::fs::File;
 use std::path::Path;
 use log::info;
 use url::Url;
 
 use reqwest::StatusCode;
+use reqwest::blocking::Client;
 
 use sha2::{Sha256, Digest};
 
-pub struct DownloadResult<W: std::io::Write> {
+pub struct DownloadResult {
     pub hash: omaha::Hash<omaha::Sha256>,
-    pub data: W,
+    pub data: File,
 }
 
 pub fn hash_on_disk_sha256(path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<omaha::Sha256>> {
@@ -57,10 +57,9 @@ pub fn hash_on_disk_sha256(path: &Path, maxlen: Option<usize>) -> Result<omaha::
     Ok(omaha::Hash::from_bytes(hasher.finalize().into()))
 }
 
-pub async fn download_and_hash<U, W>(client: &reqwest::Client, url: U, mut data: W, print_progress: bool) -> Result<DownloadResult<W>>
+pub fn download_and_hash<U>(client: &Client, url: U, path: &Path, print_progress: bool) -> Result<DownloadResult>
 where
     U: reqwest::IntoUrl + Clone,
-    W: io::Write,
     Url: From<U>,
 {
     let client_url = url.clone();
@@ -68,7 +67,6 @@ where
     #[rustfmt::skip]
     let mut res = client.get(url)
         .send()
-        .await
         .context(format!("client get and send({:?}) failed", client_url.as_str()))?;
 
     // Redirect was already handled at this point, so there is no need to touch
@@ -89,33 +87,14 @@ where
         }
     }
 
-    let mut hasher = Sha256::new();
-
-    let mut bytes_read = 0usize;
-    let bytes_to_read = res.content_length().unwrap_or(u64::MAX) as usize;
-
-    while let Some(chunk) = res.chunk().await.context("failed to get response chunk")? {
-        bytes_read += chunk.len();
-
-        hasher.update(&chunk);
-        data.write_all(&chunk).context("failed to write_all chunk")?;
-
-        if print_progress {
-            print!(
-                "\rread {}/{} ({:3}%)",
-                bytes_read,
-                bytes_to_read,
-                ((bytes_read as f32 / bytes_to_read as f32) * 100.0f32).floor()
-            );
-            io::stdout().flush().context("failed to flush stdout")?;
-        }
+    if print_progress {
+        println!("writing to {}", path.display());
     }
-
-    data.flush().context("failed to flush data")?;
-    println!();
+    let mut file = File::create(path).context(format!("failed to create path ({:?})", path.display()))?;
+    res.copy_to(&mut file)?;
 
     Ok(DownloadResult {
-        hash: omaha::Hash::from_bytes(hasher.finalize().into()),
-        data,
+        hash: hash_on_disk_sha256(path, None)?,
+        data: file,
     })
 }

@@ -4,16 +4,17 @@ use std::str::FromStr;
 
 use ue_rs::download_and_hash;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
-    let client = reqwest::Client::new();
+fn main() -> Result<(), Box<dyn Error>> {
+    let client = reqwest::blocking::Client::new();
 
     let url = Url::from_str(std::env::args().nth(1).expect("missing URL (second argument)").as_str())?;
 
     println!("fetching {}...", url);
 
-    let data = Vec::new();
-    let res = download_and_hash(&client, url, data, false).await?;
+    let tempdir = tempfile::tempdir()?;
+    let path = tempdir.path().join("tmpfile");
+    let res = download_and_hash(&client, url, &path, false)?;
+    tempdir.close()?;
 
     println!("hash: {}", res.hash);
 
