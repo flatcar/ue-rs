@@ -7,6 +7,7 @@ use std::io;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::time::Duration;
 
 #[macro_use]
 extern crate log;
@@ -318,6 +319,9 @@ impl Args {
     }
 }
 
+const HTTP_CONN_TIMEOUT: u64 = 20;
+const DOWNLOAD_TIMEOUT: u64 = 3600;
+
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
@@ -337,7 +341,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     fs::create_dir_all(&temp_dir)?;
 
     // The default policy of reqwest Client supports max 10 attempts on HTTP redirect.
-    let client = Client::builder().redirect(Policy::default()).build()?;
+    let client = Client::builder().connect_timeout(Duration::from_secs(HTTP_CONN_TIMEOUT)).timeout(Duration::from_secs(DOWNLOAD_TIMEOUT)).redirect(Policy::default()).build()?;
 
     // If input_xml exists, simply read it.
     // If not, try to read from payload_url.

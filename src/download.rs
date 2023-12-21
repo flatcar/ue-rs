@@ -10,6 +10,8 @@ use reqwest::blocking::Client;
 
 use sha2::{Sha256, Digest};
 
+const MAX_DOWNLOAD_RETRY: u32 = 20;
+
 pub struct DownloadResult {
     pub hash: omaha::Hash<omaha::Sha256>,
     pub data: File,
@@ -57,7 +59,7 @@ pub fn hash_on_disk_sha256(path: &Path, maxlen: Option<usize>) -> Result<omaha::
     Ok(omaha::Hash::from_bytes(hasher.finalize().into()))
 }
 
-pub fn download_and_hash<U>(client: &Client, url: U, path: &Path, print_progress: bool) -> Result<DownloadResult>
+fn do_download_and_hash<U>(client: &Client, url: U, path: &Path, print_progress: bool) -> Result<DownloadResult>
 where
     U: reqwest::IntoUrl + Clone,
     Url: From<U>,
@@ -65,9 +67,9 @@ where
     let client_url = url.clone();
 
     #[rustfmt::skip]
-    let mut res = client.get(url)
+    let mut res = client.get(url.clone())
         .send()
-        .context(format!("client get and send({:?}) failed", client_url.as_str()))?;
+        .context(format!("client get & send{:?} failed ", client_url.as_str()))?;
 
     // Redirect was already handled at this point, so there is no need to touch
     // response or url again. Simply print info and continue.
@@ -97,4 +99,15 @@ where
         hash: hash_on_disk_sha256(path, None)?,
         data: file,
     })
+}
+
+pub fn download_and_hash<U>(client: &Client, url: U, path: &Path, print_progress: bool) -> Result<DownloadResult>
+where
+    U: reqwest::IntoUrl + Clone,
+    Url: From<U>,
+{
+    crate::retry_loop(
+        || do_download_and_hash(client, url.clone(), path, print_progress),
+        MAX_DOWNLOAD_RETRY,
+    )
 }
