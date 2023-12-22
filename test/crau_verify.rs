@@ -1,4 +1,4 @@
-use std::io::{BufReader, Write};
+use std::io::Write;
 use std::error::Error;
 use std::fs;
 
@@ -30,14 +30,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Read update payload from srcpath, read delta update header from the payload.
     let upfile = fs::File::open(srcpath.clone())?;
 
-    let freader = &mut BufReader::new(upfile);
-    let header = delta_update::read_delta_update_header(freader)?;
+    let header = delta_update::read_delta_update_header(&upfile)?;
 
     // Parse signature data from the signature containing data, version, special fields.
-    let mut delta_archive_manifest = delta_update::get_manifest_bytes(freader, &header)?;
+    let mut delta_archive_manifest = delta_update::get_manifest_bytes(&upfile, &header)?;
 
     // Extract signature from header.
-    let sigbytes = delta_update::get_signatures_bytes(freader, &header, &mut delta_archive_manifest)?;
+    let sigbytes = delta_update::get_signatures_bytes(&upfile, &header, &mut delta_archive_manifest)?;
 
     let tmpdir = tempfile::tempdir()?.into_path();
     fs::create_dir_all(tmpdir.clone())?;
@@ -52,7 +51,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let datablobspath = tmpdir.join("ue_data_blobs");
 
     // Extract data blobs into file path.
-    delta_update::get_data_blobs(freader, &header, &delta_archive_manifest, datablobspath.as_path())?;
+    delta_update::get_data_blobs(&upfile, &header, &delta_archive_manifest, datablobspath.as_path())?;
 
     // Parse signature data from the signature containing data, version, special fields.
     let sigdata = match delta_update::parse_signature_data(&sigbytes, hdhashvec.as_slice(), PUBKEY_FILE) {
