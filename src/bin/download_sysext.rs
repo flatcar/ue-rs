@@ -341,7 +341,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     fs::create_dir_all(&temp_dir)?;
 
     // The default policy of reqwest Client supports max 10 attempts on HTTP redirect.
-    let client = Client::builder().connect_timeout(Duration::from_secs(HTTP_CONN_TIMEOUT)).timeout(Duration::from_secs(DOWNLOAD_TIMEOUT)).redirect(Policy::default()).build()?;
+    let client = Client::builder()
+        .tcp_keepalive(Duration::from_secs(HTTP_CONN_TIMEOUT))
+        .connect_timeout(Duration::from_secs(HTTP_CONN_TIMEOUT))
+        .timeout(Duration::from_secs(DOWNLOAD_TIMEOUT))
+        .redirect(Policy::default())
+        .build()?;
 
     // If input_xml exists, simply read it.
     // If not, try to read from payload_url.
