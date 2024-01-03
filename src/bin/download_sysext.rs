@@ -109,7 +109,14 @@ impl<'a> Package<'a> {
         info!("downloading {}...", self.url);
 
         let path = into_dir.join(&*self.name);
-        let res = match ue_rs::download_and_hash(client, self.url.clone(), &path, print_progress) {
+        match ue_rs::download_and_hash(
+            client,
+            self.url.clone(),
+            &path,
+            self.hash_sha256.clone(),
+            self.hash_sha1.clone(),
+            print_progress,
+        ) {
             Ok(ok) => ok,
             Err(err) => {
                 error!("Downloading failed with error {}", err);
@@ -118,7 +125,7 @@ impl<'a> Package<'a> {
             }
         };
 
-        self.verify_checksum(res.hash_sha256, res.hash_sha1);
+        self.status = PackageStatus::Unverified;
         Ok(())
     }
 
@@ -249,7 +256,7 @@ where
     U: reqwest::IntoUrl + From<U> + std::clone::Clone + std::fmt::Debug,
     Url: From<U>,
 {
-    let r = ue_rs::download_and_hash(client, input_url.clone(), path, print_progress).context(format!("unable to download data(url {:?})", input_url))?;
+    let r = ue_rs::download_and_hash(client, input_url.clone(), path, None, None, print_progress).context(format!("unable to download data(url {:?})", input_url))?;
 
     Ok(Package {
         name: Cow::Borrowed(path.file_name().unwrap_or(OsStr::new("fakepackage")).to_str().unwrap_or("fakepackage")),

@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let tempdir = tempfile::tempdir()?;
     let path = tempdir.path().join("tmpfile");
-    let res = download_and_hash(&client, url, &path, false)?;
+    let res = download_and_hash(&client, url, &path, None, None, false)?;
     tempdir.close()?;
 
     println!("hash: {}", res.hash_sha256);
