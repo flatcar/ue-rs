@@ -8,18 +8,19 @@ use url::Url;
 use reqwest::StatusCode;
 use reqwest::blocking::Client;
 
-use sha2::{Sha256, Digest};
+use sha2::digest::DynDigest;
 
 const MAX_DOWNLOAD_RETRY: u32 = 20;
 
 pub struct DownloadResult {
-    pub hash: omaha::Hash<omaha::Sha256>,
+    pub hash_sha256: omaha::Hash<omaha::Sha256>,
+    pub hash_sha1: omaha::Hash<omaha::Sha1>,
     pub data: File,
 }
 
-pub fn hash_on_disk_sha256(path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<omaha::Sha256>> {
+pub fn hash_on_disk<T: omaha::HashAlgo>(path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<T>> {
     let file = File::open(path).context(format!("failed to open path({:?})", path.display()))?;
-    let mut hasher = Sha256::new();
+    let mut hasher = T::hasher();
 
     let filelen = file.metadata().context(format!("failed to get metadata of {:?}", path.display()))?.len() as usize;
 
@@ -55,7 +56,7 @@ pub fn hash_on_disk_sha256(path: &Path, maxlen: Option<usize>) -> Result<omaha::
         hasher.update(&databuf);
     }
 
-    Ok(omaha::Hash::from_bytes(hasher.finalize().into()))
+    Ok(omaha::Hash::from_bytes(Box::new(hasher).finalize()))
 }
 
 fn do_download_and_hash<U>(client: &Client, url: U, path: &Path, print_progress: bool) -> Result<DownloadResult>
@@ -95,7 +96,8 @@ where
     res.copy_to(&mut file)?;
 
     Ok(DownloadResult {
-        hash: hash_on_disk_sha256(path, None)?,
+        hash_sha256: hash_on_disk::<omaha::Sha256>(path, None)?,
+        hash_sha1: hash_on_disk::<omaha::Sha1>(path, None)?,
         data: file,
     })
 }

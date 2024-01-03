@@ -84,8 +84,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         tempdir.close()?;
 
         println!("\texpected sha256:   {}", expected_sha256);
-        println!("\tcalculated sha256: {}", res.hash);
-        println!("\tsha256 match?      {}", expected_sha256 == res.hash);
+        println!("\tcalculated sha256: {}", res.hash_sha256);
+        println!("\tsha256 match?      {}", expected_sha256 == res.hash_sha256);
     }
 
     Ok(())

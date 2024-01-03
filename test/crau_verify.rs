@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Get length of header and data, including header and manifest.
     let header_data_length = delta_update::get_header_data_length(&header, &delta_archive_manifest).context("failed to get header data length")?;
-    let hdhash = ue_rs::hash_on_disk_sha256(headerdatapath.as_path(), Some(header_data_length))?;
+    let hdhash = ue_rs::hash_on_disk::<omaha::Sha256>(headerdatapath.as_path(), Some(header_data_length))?;
     let hdhashvec: Vec<u8> = hdhash.clone().into();
 
     // Get length of header and data

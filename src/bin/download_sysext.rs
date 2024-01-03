@@ -21,7 +21,7 @@ use reqwest::redirect::Policy;
 use url::Url;
 
 use update_format_crau::delta_update;
-use ue_rs::hash_on_disk_sha256;
+use ue_rs::hash_on_disk;
 
 #[derive(Debug)]
 enum PackageStatus {
@@ -38,7 +38,8 @@ enum PackageStatus {
 struct Package<'a> {
     url: Url,
     name: Cow<'a, str>,
-    hash: omaha::Hash<omaha::Sha256>,
+    hash_sha256: Option<omaha::Hash<omaha::Sha256>>,
+    hash_sha1: Option<omaha::Hash<omaha::Sha1>>,
     size: omaha::FileSize,
     status: PackageStatus,
 }
@@ -48,8 +49,8 @@ impl<'a> Package<'a> {
     // Return Sha256 hash of data in the given path.
     // If maxlen is None, a simple read to the end of the file.
     // If maxlen is Some, read only until the given length.
-    fn hash_on_disk(&mut self, path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<omaha::Sha256>> {
-        hash_on_disk_sha256(path, maxlen)
+    fn hash_on_disk<T: omaha::HashAlgo>(&mut self, path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<T>> {
+        hash_on_disk::<T>(path, maxlen)
     }
 
     #[rustfmt::skip]
@@ -80,10 +81,13 @@ impl<'a> Package<'a> {
 
         if size_on_disk == expected_size {
             info!("{}: download complete, checking hash...", path.display());
-            let hash = self.hash_on_disk(&path, None).context({
+            let hash_sha256 = self.hash_on_disk::<omaha::Sha256>(&path, None).context({
                 format!("failed to hash_on_disk, path ({:?})", path.display())
             })?;
-            if self.verify_checksum(hash) {
+            let hash_sha1 = self.hash_on_disk::<omaha::Sha1>(&path, None).context({
+                format!("failed to hash_on_disk, path ({:?})", path.display())
+            })?;
+            if self.verify_checksum(hash_sha256, hash_sha1) {
                 info!("{}: good hash, will continue without re-download", path.display());
             } else {
                 info!("{}: bad hash, will re-download", path.display());
@@ -114,16 +118,19 @@ impl<'a> Package<'a> {
             }
         };
 
-        self.verify_checksum(res.hash);
+        self.verify_checksum(res.hash_sha256, res.hash_sha1);
         Ok(())
     }
 
-    fn verify_checksum(&mut self, calculated: omaha::Hash<omaha::Sha256>) -> bool {
-        debug!("    expected sha256:   {}", self.hash);
-        debug!("    calculated sha256: {}", calculated);
-        debug!("    sha256 match?      {}", self.hash == calculated);
+    fn verify_checksum(&mut self, calculated_sha256: omaha::Hash<omaha::Sha256>, calculated_sha1: omaha::Hash<omaha::Sha1>) -> bool {
+        debug!("    expected sha256:   {:?}", self.hash_sha256);
+        debug!("    calculated sha256: {}", calculated_sha256);
+        debug!("    sha256 match?      {}", self.hash_sha256 == Some(calculated_sha256.clone()));
+        debug!("    expected sha1:   {:?}", self.hash_sha1);
+        debug!("    calculated sha1: {}", calculated_sha1);
+        debug!("    sha1 match?      {}", self.hash_sha1 == Some(calculated_sha1.clone()));
 
-        if self.hash != calculated {
+        if self.hash_sha256.is_some() && self.hash_sha256 != Some(calculated_sha256.clone()) || self.hash_sha1.is_some() && self.hash_sha1 != Some(calculated_sha1.clone()) {
             self.status = PackageStatus::BadChecksum;
             false
         } else {
@@ -150,7 +157,7 @@ impl<'a> Package<'a> {
 
         // Get length of header and data, including header and manifest.
         let header_data_length = delta_update::get_header_data_length(&header, &delta_archive_manifest).context("failed to get header data length")?;
-        let hdhash = self.hash_on_disk(from_path, Some(header_data_length)).context(format!("failed to hash_on_disk path ({:?}) failed", from_path.display()))?;
+        let hdhash = self.hash_on_disk::<omaha::Sha256>(from_path, Some(header_data_length)).context(format!("failed to hash_on_disk path ({:?}) failed", from_path.display()))?;
         let hdhashvec: Vec<u8> = hdhash.clone().into();
 
         // Extract data blobs into a file, datablobspath.
@@ -162,7 +169,7 @@ impl<'a> Package<'a> {
             None => bail!("unable to get new_partition_info hash"),
         };
 
-        let datahash = self.hash_on_disk(datablobspath.as_path(), None).context(format!("failed to hash_on_disk path ({:?})", datablobspath.display()))?;
+        let datahash = self.hash_on_disk::<omaha::Sha256>(datablobspath.as_path(), None).context(format!("failed to hash_on_disk path ({:?})", datablobspath.display()))?;
         if datahash != omaha::Hash::from_bytes(pinfo_hash.as_slice()[..].try_into().unwrap_or_default()) {
             bail!(
                 "mismatch of data hash ({:?}) with new_partition_info hash ({:?})",
@@ -207,30 +214,29 @@ fn get_pkgs_to_download<'a>(resp: &'a omaha::Response, glob_set: &GlobSet)
             }
 
             let hash_sha256 = pkg.hash_sha256.as_ref();
+            let hash_sha1 = pkg.hash.as_ref();
 
             // TODO: multiple URLs per package
             //       not sure if nebraska sends us more than one right now but i suppose this is
             //       for mirrors?
-            let url = app.update_check.urls.get(0)
-                .map(|u| u.join(&pkg.name));
+            let Some(Ok(url)) = app.update_check.urls.get(0)
+                .map(|u| u.join(&pkg.name)) else {
+                warn!("can't get url for package `{}`, skipping", pkg.name);
+                continue;
+            };
 
-            match (url, hash_sha256) {
-                (Some(Ok(url)), Some(hash)) => {
+            if hash_sha256.is_none() && hash_sha1.is_none() {
+              warn!("package `{}` doesn't have a valid SHA256 or SHA1 hash, skipping", pkg.name);
+              continue;
+            }
                     to_download.push(Package {
                         url,
                         name: Cow::Borrowed(&pkg.name),
-                        hash: hash.clone(),
+                        hash_sha256: hash_sha256.cloned(),
+                        hash_sha1: hash_sha1.cloned(),
                         size: pkg.size,
                         status: PackageStatus::ToDownload
-                    })
-                }
-
-                (Some(Ok(_)), None) => {
-                    warn!("package `{}` doesn't have a valid SHA256 hash, skipping", pkg.name);
-                }
-
-                _ => (),
-            }
+                    });
         }
     }
 
@@ -247,7 +253,8 @@ where
 
     Ok(Package {
         name: Cow::Borrowed(path.file_name().unwrap_or(OsStr::new("fakepackage")).to_str().unwrap_or("fakepackage")),
-        hash: r.hash,
+        hash_sha256: Some(r.hash_sha256),
+        hash_sha1: Some(r.hash_sha1),
         size: FileSize::from_bytes(r.data.metadata().context(format!("failed to get metadata, path ({:?})", path.display()))?.len() as usize),
         url: input_url.into(),
         status: PackageStatus::Unverified,
