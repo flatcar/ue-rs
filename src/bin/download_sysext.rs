@@ -4,7 +4,6 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::fs;
 use std::io;
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
@@ -136,16 +135,13 @@ impl<'a> Package<'a> {
     fn verify_signature_on_disk(&mut self, from_path: &Path, pubkey_path: &str) -> Result<PathBuf> {
         let upfile = File::open(from_path).context(format!("failed to open path ({:?})", from_path.display()))?;
 
-        // create a BufReader to pass down to parsing functions.
-        let upfreader = &mut BufReader::new(upfile);
-
         // Read update payload from file, read delta update header from the payload.
-        let header = delta_update::read_delta_update_header(upfreader).context(format!("failed to read_delta_update_header path ({:?})", from_path.display()))?;
+        let header = delta_update::read_delta_update_header(&upfile).context(format!("failed to read_delta_update_header path ({:?})", from_path.display()))?;
 
-        let mut delta_archive_manifest = delta_update::get_manifest_bytes(upfreader, &header).context(format!("failed to get_manifest_bytes path ({:?})", from_path.display()))?;
+        let mut delta_archive_manifest = delta_update::get_manifest_bytes(&upfile, &header).context(format!("failed to get_manifest_bytes path ({:?})", from_path.display()))?;
 
         // Extract signature from header.
-        let sigbytes = delta_update::get_signatures_bytes(upfreader, &header, &mut delta_archive_manifest).context(format!("failed to get_signatures_bytes path ({:?})", from_path.display()))?;
+        let sigbytes = delta_update::get_signatures_bytes(&upfile, &header, &mut delta_archive_manifest).context(format!("failed to get_signatures_bytes path ({:?})", from_path.display()))?;
 
         // tmp dir == "/var/tmp/outdir/.tmp"
         let tmpdirpathbuf = from_path.parent().ok_or(anyhow!("unable to get parent dir"))?.parent().ok_or(anyhow!("unable to get parent dir"))?.join(".tmp");
@@ -158,7 +154,7 @@ impl<'a> Package<'a> {
         let hdhashvec: Vec<u8> = hdhash.clone().into();
 
         // Extract data blobs into a file, datablobspath.
-        delta_update::get_data_blobs(upfreader, &header, &delta_archive_manifest, datablobspath.as_path()).context(format!("failed to get_data_blobs path ({:?})", datablobspath.display()))?;
+        delta_update::get_data_blobs(&upfile, &header, &delta_archive_manifest, datablobspath.as_path()).context(format!("failed to get_data_blobs path ({:?})", datablobspath.display()))?;
 
         // Check for hash of data blobs with new_partition_info hash.
         let pinfo_hash = match &delta_archive_manifest.new_partition_info.hash {

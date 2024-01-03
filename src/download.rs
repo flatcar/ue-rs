@@ -1,5 +1,5 @@
 use anyhow::{Context, Result, bail};
-use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::io::{BufReader, Read};
 use std::fs::File;
 use std::path::Path;
 use log::info;
@@ -39,7 +39,6 @@ pub fn hash_on_disk_sha256(path: &Path, maxlen: Option<usize>) -> Result<omaha::
     let mut freader = BufReader::new(file);
     let mut chunklen: usize;
 
-    freader.seek(SeekFrom::Start(0)).context("failed to seek(0)".to_string())?;
     while maxlen_to_read > 0 {
         if maxlen_to_read < CHUNKLEN {
             chunklen = maxlen_to_read;
