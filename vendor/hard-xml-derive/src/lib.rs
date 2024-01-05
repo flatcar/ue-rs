@@ -1,5 +1,7 @@
 #![recursion_limit = "256"]
 
+#![allow(clippy::all)]
+
 extern crate proc_macro;
 
 mod attrs;

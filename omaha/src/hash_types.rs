@@ -1,6 +1,8 @@
 use std::fmt;
 use std::str;
 
+use sha2::Digest;
+
 use anyhow::{Error as CodecError, anyhow};
 
 #[rustfmt::skip]
@@ -22,24 +24,63 @@ pub trait HashAlgo {
     const HASH_NAME: &'static str;
 
     type Output: AsRef<[u8]> + AsMut<[u8]> + Default + Sized + Eq;
+
+    fn hasher() -> impl digest::DynDigest;
+    fn from_boxed(s: Box<[u8]>) -> Self::Output;
 }
 
 impl HashAlgo for Sha1 {
     const HASH_NAME: &'static str = "Sha1";
     type Output = [u8; 20];
+
+    fn hasher() -> impl digest::DynDigest {
+        sha1::Sha1::new()
+    }
+
+    fn from_boxed(s: Box<[u8]>) -> Self::Output {
+        let mut v = s.into_vec();
+        v.resize(Self::Output::default().len(), 0);
+        let boxed_array: Box<Self::Output> = match v.into_boxed_slice().try_into() {
+            Ok(a) => a,
+            Err(e) => {
+                println!("Unexpected length {}", e.len());
+                #[allow(clippy::box_default)]
+                Box::new(Self::Output::default())
+            }
+        };
+        *boxed_array
+    }
 }
 
 impl HashAlgo for Sha256 {
     const HASH_NAME: &'static str = "Sha256";
     type Output = [u8; 32];
+
+    fn hasher() -> impl digest::DynDigest {
+        sha2::Sha256::new()
+    }
+
+    fn from_boxed(s: Box<[u8]>) -> Self::Output {
+        let mut v = s.into_vec();
+        v.resize(Self::Output::default().len(), 0);
+        let boxed_array: Box<Self::Output> = match v.into_boxed_slice().try_into() {
+            Ok(a) => a,
+            Err(e) => {
+                println!("Unexpected length {}", e.len());
+                #[allow(clippy::box_default)]
+                Box::new(Self::Output::default())
+            }
+        };
+        *boxed_array
+    }
 }
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct Hash<T: HashAlgo>(T::Output);
 
 impl<T: HashAlgo> Hash<T> {
-    pub fn from_bytes(digest: T::Output) -> Self {
-        Self(digest)
+    pub fn from_bytes(digest: Box<[u8]>) -> Self {
+        Self(T::from_boxed(digest))
     }
 }
 

@@ -28,7 +28,7 @@ pub struct Parameters<'a> {
     pub machine_id: Cow<'a, str>,
 }
 
-pub fn perform<'a>(client: &reqwest::blocking::Client, parameters: Parameters<'a>) -> Result<String> {
+pub fn perform(client: &reqwest::blocking::Client, parameters: Parameters<'_>) -> Result<String> {
     let req_body = {
         let r = omaha::Request {
             protocol_version: Cow::Borrowed(PROTOCOL_VERSION),

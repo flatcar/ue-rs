@@ -80,12 +80,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let tempdir = tempfile::tempdir()?;
         let path = tempdir.path().join("tmpfile");
-        let res = ue_rs::download_and_hash(&client, url.clone(), &path, false).context(format!("download_and_hash({url:?}) failed"))?;
+        let res = ue_rs::download_and_hash(&client, url.clone(), &path, Some(expected_sha256.clone()), None, false).context(format!("download_and_hash({url:?}) failed"))?;
         tempdir.close()?;
 
         println!("\texpected sha256:   {}", expected_sha256);
-        println!("\tcalculated sha256: {}", res.hash);
-        println!("\tsha256 match?      {}", expected_sha256 == res.hash);
+        println!("\tcalculated sha256: {}", res.hash_sha256);
+        println!("\tsha256 match?      {}", expected_sha256 == res.hash_sha256);
     }
 
     Ok(())
