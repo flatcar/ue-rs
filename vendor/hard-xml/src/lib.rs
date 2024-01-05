@@ -333,6 +333,7 @@
 //!     Root { attr: true }
 //! );
 //! ```
+#![allow(clippy::all)]
 
 #[cfg(feature = "log")]
 mod log;

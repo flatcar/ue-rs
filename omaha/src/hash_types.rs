@@ -44,6 +44,7 @@ impl HashAlgo for Sha1 {
             Ok(a) => a,
             Err(e) => {
                 println!("Unexpected length {}", e.len());
+                #[allow(clippy::box_default)]
                 Box::new(Self::Output::default())
             }
         };
@@ -66,6 +67,7 @@ impl HashAlgo for Sha256 {
             Ok(a) => a,
             Err(e) => {
                 println!("Unexpected length {}", e.len());
+                #[allow(clippy::box_default)]
                 Box::new(Self::Output::default())
             }
         };

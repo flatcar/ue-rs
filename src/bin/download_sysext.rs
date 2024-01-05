@@ -177,7 +177,7 @@ impl<'a> Package<'a> {
         };
 
         let datahash = self.hash_on_disk::<omaha::Sha256>(datablobspath.as_path(), None).context(format!("failed to hash_on_disk path ({:?})", datablobspath.display()))?;
-        if datahash != omaha::Hash::from_bytes(pinfo_hash.as_slice()[..].try_into().unwrap_or_default()) {
+        if datahash != omaha::Hash::from_bytes(pinfo_hash.as_slice()[..].into()) {
             bail!(
                 "mismatch of data hash ({:?}) with new_partition_info hash ({:?})",
                 datahash,
@@ -226,7 +226,7 @@ fn get_pkgs_to_download<'a>(resp: &'a omaha::Response, glob_set: &GlobSet)
             // TODO: multiple URLs per package
             //       not sure if nebraska sends us more than one right now but i suppose this is
             //       for mirrors?
-            let Some(Ok(url)) = app.update_check.urls.get(0)
+            let Some(Ok(url)) = app.update_check.urls.first()
                 .map(|u| u.join(&pkg.name)) else {
                 warn!("can't get url for package `{}`, skipping", pkg.name);
                 continue;
