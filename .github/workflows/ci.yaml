@@ -34,3 +34,8 @@ jobs:
         with:
           command: test
           args: --workspace
+      - name: Run clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --workspace
