@@ -268,7 +268,7 @@ where
     })
 }
 
-fn do_download_verify(pkg: &mut Package<'_>, output_dir: &Path, unverified_dir: &Path, pubkey_file: &str, client: &Client, print_progress: bool) -> Result<()> {
+fn do_download_verify(pkg: &mut Package<'_>, output_filename: Option<String>, output_dir: &Path, unverified_dir: &Path, pubkey_file: &str, client: &Client, print_progress: bool) -> Result<()> {
     pkg.check_download(unverified_dir)?;
 
     pkg.download(unverified_dir, client, print_progress).context(format!("unable to download \"{:?}\"", pkg.name))?;
@@ -276,7 +276,7 @@ fn do_download_verify(pkg: &mut Package<'_>, output_dir: &Path, unverified_dir: 
     // Unverified payload is stored in e.g. "output_dir/.unverified/oem.gz".
     // Verified payload is stored in e.g. "output_dir/oem.raw".
     let pkg_unverified = unverified_dir.join(&*pkg.name);
-    let pkg_verified = output_dir.join(pkg_unverified.with_extension("raw").file_name().unwrap_or_default());
+    let pkg_verified = output_dir.join(output_filename.as_ref().map(OsStr::new).unwrap_or(pkg_unverified.with_extension("raw").file_name().unwrap_or_default()));
 
     let datablobspath = pkg.verify_signature_on_disk(&pkg_unverified, pubkey_file).context(format!("unable to verify signature \"{}\"", pkg.name))?;
 
@@ -295,6 +295,10 @@ struct Args {
     #[argh(option, short = 'o')]
     output_dir: String,
 
+    /// target filename in directory, requires --payload-url or --take-first-match
+    #[argh(option, short = 'n')]
+    target_filename: Option<String>,
+
     /// path to the Omaha XML file, or - to read from stdin
     #[argh(option, short = 'i')]
     input_xml: Option<String>,
@@ -311,6 +315,10 @@ struct Args {
     /// may be specified multiple times.
     #[argh(option, short = 'm')]
     image_match: Vec<String>,
+
+    /// only take the first matching entry
+    #[argh(switch, short = 't')]
+    take_first_match: bool,
 
     /// report download progress
     #[argh(switch, short = 'v')]
@@ -337,6 +345,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let args: Args = argh::from_env();
     println!("{:?}", args);
+
+    if args.payload_url.is_none() && !args.take_first_match && args.target_filename.is_some() {
+        return Err("--target-filename can only be specified with --take-first-match".into());
+    }
 
     let glob_set = args.image_match_glob_set()?;
 
@@ -391,6 +403,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             )?;
             do_download_verify(
                 &mut pkg_fake,
+                args.target_filename.clone(),
                 output_dir,
                 unverified_dir.as_path(),
                 args.pubkey_file.as_str(),
@@ -424,12 +437,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     for pkg in pkgs_to_dl.iter_mut() {
         do_download_verify(
             pkg,
+            args.target_filename.clone(),
             output_dir,
             unverified_dir.as_path(),
             args.pubkey_file.as_str(),
             &client,
             args.print_progress,
         )?;
+        if args.take_first_match {
+            break;
+        }
     }
 
     // clean up data
