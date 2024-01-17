@@ -59,14 +59,7 @@ pub fn hash_on_disk<T: omaha::HashAlgo>(path: &Path, maxlen: Option<usize>) -> R
     Ok(omaha::Hash::from_bytes(Box::new(hasher).finalize()))
 }
 
-fn do_download_and_hash<U>(
-    client: &Client,
-    url: U,
-    path: &Path,
-    expected_sha256: Option<omaha::Hash<omaha::Sha256>>,
-    expected_sha1: Option<omaha::Hash<omaha::Sha1>>,
-    print_progress: bool,
-) -> Result<DownloadResult>
+fn do_download_and_hash<U>(client: &Client, url: U, path: &Path, expected_sha256: Option<omaha::Hash<omaha::Sha256>>, expected_sha1: Option<omaha::Hash<omaha::Sha1>>) -> Result<DownloadResult>
 where
     U: reqwest::IntoUrl + Clone,
     Url: From<U>,
@@ -96,9 +89,8 @@ where
         }
     }
 
-    if print_progress {
-        println!("writing to {}", path.display());
-    }
+    println!("writing to {}", path.display());
+
     let mut file = File::create(path).context(format!("failed to create path ({:?})", path.display()))?;
     res.copy_to(&mut file)?;
 
@@ -126,29 +118,13 @@ where
     })
 }
 
-pub fn download_and_hash<U>(
-    client: &Client,
-    url: U,
-    path: &Path,
-    expected_sha256: Option<omaha::Hash<omaha::Sha256>>,
-    expected_sha1: Option<omaha::Hash<omaha::Sha1>>,
-    print_progress: bool,
-) -> Result<DownloadResult>
+pub fn download_and_hash<U>(client: &Client, url: U, path: &Path, expected_sha256: Option<omaha::Hash<omaha::Sha256>>, expected_sha1: Option<omaha::Hash<omaha::Sha1>>) -> Result<DownloadResult>
 where
     U: reqwest::IntoUrl + Clone,
     Url: From<U>,
 {
     crate::retry_loop(
-        || {
-            do_download_and_hash(
-                client,
-                url.clone(),
-                path,
-                expected_sha256.clone(),
-                expected_sha1.clone(),
-                print_progress,
-            )
-        },
+        || do_download_and_hash(client, url.clone(), path, expected_sha256.clone(), expected_sha1.clone()),
         MAX_DOWNLOAD_RETRY,
     )
 }
