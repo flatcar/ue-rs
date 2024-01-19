@@ -98,7 +98,7 @@ impl<'a> Package<'a> {
         Ok(())
     }
 
-    fn download(&mut self, into_dir: &Path, client: &Client, print_progress: bool) -> Result<()> {
+    fn download(&mut self, into_dir: &Path, client: &Client) -> Result<()> {
         // FIXME: use _range_start for completing downloads
         let _range_start = match self.status {
             PackageStatus::ToDownload => 0,
@@ -115,7 +115,6 @@ impl<'a> Package<'a> {
             &path,
             self.hash_sha256.clone(),
             self.hash_sha1.clone(),
-            print_progress,
         ) {
             Ok(ok) => ok,
             Err(err) => {
@@ -251,12 +250,12 @@ fn get_pkgs_to_download<'a>(resp: &'a omaha::Response, glob_set: &GlobSet)
 }
 
 // Read data from remote URL into File
-fn fetch_url_to_file<'a, U>(path: &'a Path, input_url: U, client: &'a Client, print_progress: bool) -> Result<Package<'a>>
+fn fetch_url_to_file<'a, U>(path: &'a Path, input_url: U, client: &'a Client) -> Result<Package<'a>>
 where
     U: reqwest::IntoUrl + From<U> + std::clone::Clone + std::fmt::Debug,
     Url: From<U>,
 {
-    let r = ue_rs::download_and_hash(client, input_url.clone(), path, None, None, print_progress).context(format!("unable to download data(url {:?})", input_url))?;
+    let r = ue_rs::download_and_hash(client, input_url.clone(), path, None, None).context(format!("unable to download data(url {:?})", input_url))?;
 
     Ok(Package {
         name: Cow::Borrowed(path.file_name().unwrap_or(OsStr::new("fakepackage")).to_str().unwrap_or("fakepackage")),
@@ -268,10 +267,10 @@ where
     })
 }
 
-fn do_download_verify(pkg: &mut Package<'_>, output_filename: Option<String>, output_dir: &Path, unverified_dir: &Path, pubkey_file: &str, client: &Client, print_progress: bool) -> Result<()> {
+fn do_download_verify(pkg: &mut Package<'_>, output_filename: Option<String>, output_dir: &Path, unverified_dir: &Path, pubkey_file: &str, client: &Client) -> Result<()> {
     pkg.check_download(unverified_dir)?;
 
-    pkg.download(unverified_dir, client, print_progress).context(format!("unable to download \"{:?}\"", pkg.name))?;
+    pkg.download(unverified_dir, client).context(format!("unable to download \"{:?}\"", pkg.name))?;
 
     // Unverified payload is stored in e.g. "output_dir/.unverified/oem.gz".
     // Verified payload is stored in e.g. "output_dir/oem.raw".
@@ -319,10 +318,6 @@ struct Args {
     /// only take the first matching entry
     #[argh(switch, short = 't')]
     take_first_match: bool,
-
-    /// report download progress
-    #[argh(switch, short = 'v')]
-    print_progress: bool,
 }
 
 impl Args {
@@ -399,7 +394,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &temp_payload_path,
                 Url::from_str(url.as_str()).context(anyhow!("failed to convert into url ({:?})", url))?,
                 &client,
-                args.print_progress,
             )?;
             do_download_verify(
                 &mut pkg_fake,
@@ -408,7 +402,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                 unverified_dir.as_path(),
                 args.pubkey_file.as_str(),
                 &client,
-                args.print_progress,
             )?;
 
             // verify only a fake package, early exit and skip the rest.
@@ -442,7 +435,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             unverified_dir.as_path(),
             args.pubkey_file.as_str(),
             &client,
-            args.print_progress,
         )?;
         if args.take_first_match {
             break;
