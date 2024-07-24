@@ -84,6 +84,7 @@ pub enum Field {
     ///     $name: $ty,
     /// }
     /// ```
+    #[allow(dead_code)]
     Child {
         name: TokenStream,
         bind: Ident,
