@@ -46,3 +46,7 @@ strip = true
 # Reduce binary size by using one codegen unit for similar gains as thin LTO
 # (which we had problem with when cross-compiling)
 codegen-units = 1
+
+# cargo-machete shows false positive of uuid, which is actually needed.
+[package.metadata.cargo-machete]
+ignored = ["uuid"]
