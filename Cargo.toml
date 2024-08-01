@@ -8,11 +8,9 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.75"
 argh = "0.1"
-bzip2 = "0.4.4"
 env_logger = "0.10"
 globset = "0.4"
 log = "0.4"
-protobuf = "3.2.0"
 reqwest = { version = "0.11", features = ["blocking"] }
 sha2 = "0.10"
 tempfile = "3.8.1"
@@ -48,3 +46,7 @@ strip = true
 # Reduce binary size by using one codegen unit for similar gains as thin LTO
 # (which we had problem with when cross-compiling)
 codegen-units = 1
+
+# cargo-machete shows false positive of uuid, which is actually needed.
+[package.metadata.cargo-machete]
+ignored = ["uuid"]

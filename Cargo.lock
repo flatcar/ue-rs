@@ -1421,13 +1421,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "argh",
- "bzip2",
  "env_logger",
  "globset",
  "hard-xml",
  "log",
  "omaha",
- "protobuf",
  "reqwest",
  "sha2",
  "tempfile",
