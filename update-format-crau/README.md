@@ -15,10 +15,10 @@ debug/crau_test ./src/testdata/flatcar_test_update-oem-azure.gz
 
 ```
 sudo apt install protobuf-compiler
-cargo install protoc-bin-vendored
+cargo install protobuf-codegen
 
 UPDATE_ENGINE_PATH=.../update_engine
 
-protoc --rust_out . $UPDATE_ENGINE_PATH/update_metadata.proto \
+protoc --rs_out . $UPDATE_ENGINE_PATH/update_metadata.proto \
   --proto_path $UPDATE_ENGINE_PATH/src/update_engine/
 ```
