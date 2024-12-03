@@ -44,7 +44,7 @@ struct Package<'a> {
     status: PackageStatus,
 }
 
-impl<'a> Package<'a> {
+impl Package<'_> {
     #[rustfmt::skip]
     // Return Sha256 hash of data in the given path.
     // If maxlen is None, a simple read to the end of the file.
