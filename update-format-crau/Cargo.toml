@@ -9,4 +9,13 @@ edition = "2021"
 bzip2 = "0.4.4"
 log = "0.4.19"
 protobuf = "3"
-rsa = { version = "0.9.10", features = ["sha2"] }
+
+# WIP to update rsa to 0.10.0-pre.?
+# Necessary to pin to specific pre/rc versions, because of sub-dependency issues.
+rsa = { version = "=0.10.0-pre.4", features = ["sha2"] }
+pkcs1 = { version = "=0.8.0-rc.1" }
+pkcs8 = { version = "=0.11.0-rc.1" }
+
+[dev-dependencies]
+# Necessary to pin it under dev-dependencies, as it is an indirect dependency.
+der = { version = "=0.8.0-rc.1" }
