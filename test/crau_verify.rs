@@ -57,21 +57,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     let sigdata = match delta_update::parse_signature_data(&sigbytes, hdhashvec.as_slice(), PUBKEY_FILE) {
         Ok(data) => data,
         _ => {
-            return Err(format!(
-                "unable to parse and verify signature, sigbytes ({:?}), hdhash ({:?}), pubkey_path ({:?})",
-                sigbytes, hdhash, PUBKEY_FILE,
-            )
-            .into());
+            return Err(format!("unable to parse and verify signature, sigbytes ({sigbytes:?}), hdhash ({hdhash:?}), pubkey_path ({PUBKEY_FILE:?})",).into());
         }
     };
 
-    println!("Parsed signature data from file {:?}", srcpath);
+    println!("Parsed signature data from file {srcpath:?}");
 
     // Store signature into a file.
     let mut sigfile = fs::File::create(sigpath.clone())?;
     let _ = sigfile.write_all(sigdata.as_slice());
 
-    println!("Wrote signature data into file {:?}", sigpath);
+    println!("Wrote signature data into file {sigpath:?}");
 
     Ok(())
 }

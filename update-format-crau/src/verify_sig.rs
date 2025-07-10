@@ -45,7 +45,7 @@ pub fn verify_rsa_pkcs_buf(databuf: &[u8], signature: &[u8], public_key: RsaPubl
             databuf,
             &pkcs1v15::Signature::try_from(signature).context(anyhow!("unable to convert signature into pkcs1v15::Signature"))?,
         )
-        .context(format!("failed to verify signature ({:?})", signature))
+        .context(format!("failed to verify signature ({signature:?})"))
 }
 
 // Takes a data buffer, signature and a public key, to verify the data
@@ -62,20 +62,20 @@ pub fn verify_rsa_pkcs_prehash(digestbuf: &[u8], signature: &[u8], public_key: R
             digestbuf,
             &pkcs1v15::Signature::try_from(signature).context(anyhow!("unable to convert signature into pkcs1v15::Signature"))?,
         )
-        .context(format!("failed to verify_prehash signature ({:?})", signature))
+        .context(format!("failed to verify_prehash signature ({signature:?})"))
 }
 
 pub fn get_private_key_pkcs_pem(private_key_path: &str, key_type: KeyType) -> Result<RsaPrivateKey> {
-    let private_key_buf = fs::read_to_string(private_key_path).context(format!("failed to read private key from path {:?}", private_key_path))?;
+    let private_key_buf = fs::read_to_string(private_key_path).context(format!("failed to read private key from path {private_key_path:?}"))?;
     let out_key = match key_type {
         KeyType::KeyTypePkcs1 => RsaPrivateKey::from_pkcs1_pem(private_key_buf.as_str()).or_else(|error| {
-            bail!("failed to parse PKCS1 PEM message: {:?}", error);
+            bail!("failed to parse PKCS1 PEM message: {error:?}");
         }),
         KeyType::KeyTypePkcs8 => RsaPrivateKey::from_pkcs8_pem(private_key_buf.as_str()).or_else(|error| {
-            bail!("failed to parse PKCS8 PEM message: {:?}", error);
+            bail!("failed to parse PKCS8 PEM message: {error:?}");
         }),
         KeyType::KeyTypeNone => {
-            bail!("invalid key type: {:?}", key_type);
+            bail!("invalid key type: {key_type:?}");
         }
     };
 
@@ -83,16 +83,16 @@ pub fn get_private_key_pkcs_pem(private_key_path: &str, key_type: KeyType) -> Re
 }
 
 pub fn get_public_key_pkcs_pem(public_key_path: &str, key_type: KeyType) -> Result<RsaPublicKey> {
-    let public_key_buf = fs::read_to_string(public_key_path).context(format!("failed to read public key from path {:?}", public_key_path))?;
+    let public_key_buf = fs::read_to_string(public_key_path).context(format!("failed to read public key from path {public_key_path:?}"))?;
     let out_key = match key_type {
         KeyType::KeyTypePkcs1 => RsaPublicKey::from_pkcs1_pem(public_key_buf.as_str()).or_else(|error| {
-            bail!("failed to parse PKCS1 PEM message: {:?}", error);
+            bail!("failed to parse PKCS1 PEM message: {error:?}");
         }),
         KeyType::KeyTypePkcs8 => RsaPublicKey::from_public_key_pem(public_key_buf.as_str()).or_else(|error| {
-            bail!("failed to parse PKCS8 PEM message: {:?}", error);
+            bail!("failed to parse PKCS8 PEM message: {error:?}");
         }),
         KeyType::KeyTypeNone => {
-            bail!("invalid key type: {:?}", key_type);
+            bail!("invalid key type: {key_type:?}");
         }
     };
 

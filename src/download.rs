@@ -49,7 +49,7 @@ pub fn hash_on_disk<T: omaha::HashAlgo>(path: &Path, maxlen: Option<usize>) -> R
 
         let mut databuf = vec![0u8; chunklen];
 
-        freader.read_exact(&mut databuf).context(format!("failed to read_exact(chunklen {:?})", chunklen))?;
+        freader.read_exact(&mut databuf).context(format!("failed to read_exact(chunklen {chunklen:?})"))?;
 
         maxlen_to_read -= chunklen;
 
@@ -97,11 +97,11 @@ where
     let calculated_sha256 = hash_on_disk::<omaha::Sha256>(path, None)?;
     let calculated_sha1 = hash_on_disk::<omaha::Sha1>(path, None)?;
 
-    debug!("    expected sha256:   {:?}", expected_sha256);
-    debug!("    calculated sha256: {}", calculated_sha256);
+    debug!("    expected sha256:   {expected_sha256:?}");
+    debug!("    calculated sha256: {calculated_sha256}");
     debug!("    sha256 match?      {}", expected_sha256 == Some(calculated_sha256.clone()));
-    debug!("    expected sha1:   {:?}", expected_sha1);
-    debug!("    calculated sha1: {}", calculated_sha1);
+    debug!("    expected sha1:   {expected_sha1:?}");
+    debug!("    calculated sha1: {calculated_sha1}");
     debug!("    sha1 match?      {}", expected_sha1 == Some(calculated_sha1.clone()));
 
     if expected_sha256.is_some() && expected_sha256 != Some(calculated_sha256.clone()) {
