@@ -114,8 +114,8 @@ pub fn get_header_data_length(header: &DeltaUpdateFileHeader, manifest: &proto::
 // Return path to data blobs, without header, manifest, or signatures.
 pub fn get_data_blobs<'a>(f: &'a File, header: &'a DeltaUpdateFileHeader, manifest: &proto::DeltaArchiveManifest, tmpfile: &Path) -> Result<()> {
     let tmpdir = tmpfile.parent().ok_or(anyhow!("unable to get parent directory"))?;
-    fs::create_dir_all(tmpdir).context(format!("failed to create directory {:?}", tmpdir))?;
-    let mut outfile = File::create(tmpfile).context(format!("failed to create file {:?}", tmpfile))?;
+    fs::create_dir_all(tmpdir).context(format!("failed to create directory {tmpdir:?}"))?;
+    let mut outfile = File::create(tmpfile).context(format!("failed to create file {tmpfile:?}"))?;
 
     // Read from the beginning of header, which means buffer including only data blobs.
     // It means it is necessary to call header.translate_offset(), in contrast to
@@ -137,21 +137,20 @@ pub fn get_data_blobs<'a>(f: &'a File, header: &'a DeltaUpdateFileHeader, manife
 
         let translated_offset = header.translate_offset(data_offset.into());
         f.read_exact_at(&mut partdata, translated_offset).context(format!(
-            "failed to read data with length {:?} at {:?}",
-            data_length, translated_offset
+            "failed to read data with length {data_length:?} at {translated_offset:?}",
         ))?;
 
         // In case of bzip2-compressed chunks, extract.
         if pop.type_.ok_or(anyhow!("unable to get type_ from partition operations"))? == proto::install_operation::Type::REPLACE_BZ.into() {
             let mut bzdecoder = BzDecoder::new(&partdata[..]);
             let mut partdata_unpacked = Vec::new();
-            bzdecoder.read_to_end(&mut partdata_unpacked).context(format!("failed to unpack bzip2ed data at offset {:?}", translated_offset))?;
+            bzdecoder.read_to_end(&mut partdata_unpacked).context(format!("failed to unpack bzip2ed data at offset {translated_offset:?}"))?;
 
-            outfile.write_all_at(&partdata_unpacked, start_block).context(format!("failed to copy unpacked data at offset {:?}", translated_offset))?;
+            outfile.write_all_at(&partdata_unpacked, start_block).context(format!("failed to copy unpacked data at offset {translated_offset:?}"))?;
         } else {
-            outfile.write_all_at(&partdata, start_block).context(format!("failed to copy plain data at offset {:?}", translated_offset))?;
+            outfile.write_all_at(&partdata, start_block).context(format!("failed to copy plain data at offset {translated_offset:?}"))?;
         }
-        outfile.flush().context(format!("failed to flush at offset {:?}", translated_offset))?;
+        outfile.flush().context(format!("failed to flush at offset {translated_offset:?}"))?;
     }
 
     Ok(())
@@ -204,7 +203,7 @@ pub fn verify_sig_pubkey(digest: &[u8], sig: &Signature, pubkeyfile: &str) -> Re
         _ => bail!("empty signature data, nothing to verify"),
     };
 
-    debug!("digest: {:?}", digest);
+    debug!("digest: {digest:?}");
     debug!("data: {:?}", sig.data());
     debug!("special_fields: {:?}", sig.special_fields());
 
@@ -212,7 +211,7 @@ pub fn verify_sig_pubkey(digest: &[u8], sig: &Signature, pubkeyfile: &str) -> Re
     let pkcspem_pubkey = match get_public_key_pkcs_pem(pubkeyfile, KeyTypePkcs8) {
         Ok(key) => key,
         Err(err) => {
-            bail!("failed to get PKCS8 PEM public key ({:?}) with error {:?}", pubkeyfile, err);
+            bail!("failed to get PKCS8 PEM public key ({pubkeyfile:?}) with error {err:?}");
         }
     };
 
@@ -220,7 +219,7 @@ pub fn verify_sig_pubkey(digest: &[u8], sig: &Signature, pubkeyfile: &str) -> Re
     match res_verify {
         Ok(res_verify) => res_verify,
         Err(err) => {
-            bail!("verify_rsa_pkcs signature ({:?}) failed with error {:?}", sig, err);
+            bail!("verify_rsa_pkcs signature ({sig:?}) failed with error {err:?}");
         }
     };
 

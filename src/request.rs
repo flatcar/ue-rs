@@ -71,7 +71,7 @@ pub fn perform(client: &reqwest::blocking::Client, parameters: Parameters<'_>) -
     };
 
     // TODO: remove
-    println!("request body:\n\t{}", req_body);
+    println!("request body:\n\t{req_body}");
     println!();
 
     #[rustfmt::skip]

@@ -67,7 +67,7 @@ impl FromStr for ActionEvent {
             "postinstall" => ActionEvent::PostInstall,
             "update" => ActionEvent::Update,
 
-            _ => return Err(format!("unknown success action \"{}\"", s)),
+            _ => return Err(format!("unknown success action \"{s}\"")),
         })
     }
 }
@@ -98,7 +98,7 @@ impl FromStr for SuccessAction {
             "exitsilently" => SuccessAction::ExitSilently,
             "exitsilentlyonlaunchcmd" => SuccessAction::ExitSilentlyOnLaunchCommand,
 
-            _ => return Err(format!("unknown success action \"{}\"", s)),
+            _ => return Err(format!("unknown success action \"{s}\"")),
         })
     }
 }

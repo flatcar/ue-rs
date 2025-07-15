@@ -118,7 +118,7 @@ impl Package<'_> {
         ) {
             Ok(ok) => ok,
             Err(err) => {
-                error!("Downloading failed with error {}", err);
+                error!("Downloading failed with error {err}");
                 self.status = PackageStatus::DownloadFailed;
                 bail!("unable to download data(url {})", self.url);
             }
@@ -130,10 +130,10 @@ impl Package<'_> {
 
     fn verify_checksum(&mut self, calculated_sha256: omaha::Hash<omaha::Sha256>, calculated_sha1: omaha::Hash<omaha::Sha1>) -> bool {
         debug!("    expected sha256:   {:?}", self.hash_sha256);
-        debug!("    calculated sha256: {}", calculated_sha256);
+        debug!("    calculated sha256: {calculated_sha256}");
         debug!("    sha256 match?      {}", self.hash_sha256 == Some(calculated_sha256.clone()));
         debug!("    expected sha1:   {:?}", self.hash_sha1);
-        debug!("    calculated sha1: {}", calculated_sha1);
+        debug!("    calculated sha1: {calculated_sha1}");
         debug!("    sha1 match?      {}", self.hash_sha1 == Some(calculated_sha1.clone()));
 
         if self.hash_sha256.is_some() && self.hash_sha256 != Some(calculated_sha256.clone()) || self.hash_sha1.is_some() && self.hash_sha1 != Some(calculated_sha1.clone()) {
@@ -198,7 +198,7 @@ impl Package<'_> {
             }
         };
 
-        println!("Parsed and verified signature data from file {:?}", from_path);
+        println!("Parsed and verified signature data from file {from_path:?}");
 
         self.status = PackageStatus::Verified;
         Ok(datablobspath)
@@ -255,7 +255,7 @@ where
     U: reqwest::IntoUrl + From<U> + std::clone::Clone + std::fmt::Debug,
     Url: From<U>,
 {
-    let r = ue_rs::download_and_hash(client, input_url.clone(), path, None, None).context(format!("unable to download data(url {:?})", input_url))?;
+    let r = ue_rs::download_and_hash(client, input_url.clone(), path, None, None).context(format!("unable to download data(url {input_url:?})"))?;
 
     Ok(Package {
         name: Cow::Borrowed(path.file_name().unwrap_or(OsStr::new("fakepackage")).to_str().unwrap_or("fakepackage")),
@@ -280,7 +280,7 @@ fn do_download_verify(pkg: &mut Package<'_>, output_filename: Option<String>, ou
     let datablobspath = pkg.verify_signature_on_disk(&pkg_unverified, pubkey_file).context(format!("unable to verify signature \"{}\"", pkg.name))?;
 
     // write extracted data into the final data.
-    debug!("data blobs written into file {:?}", pkg_verified);
+    debug!("data blobs written into file {pkg_verified:?}");
     fs::rename(datablobspath, pkg_verified)?;
 
     Ok(())
@@ -339,7 +339,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
     let args: Args = argh::from_env();
-    println!("{:?}", args);
+    println!("{args:?}");
 
     if args.payload_url.is_none() && !args.take_first_match && args.target_filename.is_some() {
         return Err("--target-filename can only be specified with --take-first-match".into());
@@ -411,7 +411,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let response_text = res_local.ok_or(anyhow!("failed to get response text"))?;
-    debug!("response_text: {:?}", response_text);
+    debug!("response_text: {response_text:?}");
 
     ////
     // parse response
@@ -420,7 +420,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut pkgs_to_dl = get_pkgs_to_download(&resp, &glob_set)?;
 
-    debug!("pkgs:\n\t{:#?}", pkgs_to_dl);
+    debug!("pkgs:\n\t{pkgs_to_dl:#?}");
     debug!("");
 
     ////
