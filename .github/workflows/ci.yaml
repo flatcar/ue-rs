@@ -2,6 +2,7 @@ name: "Run CI"
 permissions:
   contents: read
   pull-requests: read
+
 on:
   push:
     branches:
@@ -19,22 +20,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: rustup component add rustfmt
       - name: Rustfmt Check
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all --check
+        run: cargo fmt --all --check
       - name: Build ue-rs
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --workspace
+        run: cargo build --workspace
       - name: Run unit tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace
+        run: cargo test --workspace
       - name: Run clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --workspace -- --deny warnings
+        run: cargo clippy --workspace -- --deny warnings
