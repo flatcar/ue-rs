@@ -18,7 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
-      - run: rustup component add rustfmt
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
       - name: Rustfmt Check
         run: cargo fmt --all --check
       - name: Build ue-rs
