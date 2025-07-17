@@ -2,6 +2,7 @@ name: "Run CI"
 permissions:
   contents: read
   pull-requests: read
+
 on:
   push:
     branches:
@@ -16,29 +17,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
           toolchain: stable
-          override: true
-      - run: rustup component add rustfmt
+          components: clippy, rustfmt
       - name: Rustfmt Check
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all --check
+        run: cargo fmt --all --check
       - name: Build ue-rs
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --workspace
+        run: cargo build --workspace
       - name: Run unit tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace
+        run: cargo test --workspace
       - name: Run clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --workspace -- --deny warnings
+        run: cargo clippy --workspace -- --deny warnings
