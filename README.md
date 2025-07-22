@@ -26,15 +26,30 @@ This project, however, is different from the original update engine in the follo
 
 * It aims to be as minimal as possible. Since `update_engine` has a long history of multiple forks of a [ChromiumOS project](https://chromium.googlesource.com/aosp/platform/system/update_engine/), its code base is inherently heavy and complicated. To address that, it is made by rewriting only essential parts like parsing Omaha protocol from scratch, and use pure Rust RSA libraries instead of relying on openssl.
 * Written in Rust, a huge advantage for security, especially memory safety, in contrast to the previous `update_engine`, which is written mainly in C++ and bash.
-* In addition to traditional OS update payloads, it supports systemd-sysext OEM, which recently started to be included in the Alpha channel of Flatcar Container Linux.
+* In addition to traditional OS update payloads, it supports systemd-sysext OEM, which recently started to be included in Flatcar Container Linux.
 
 ## Getting started
 
-Build.
+Build binaries.
 
 ```
-cargo build
+cargo build --workspace
 ```
 
-Run binaries under `target/debug` or examples under `examples`.
+Then you are able to run binaries under `target/debug`.
 
+Run unit tests.
+```
+cargo test --workspace
+```
+
+Run a command-line tool `download_sysext`, for example:
+
+```
+PROD_KEY=$HOME/Dev/flatcar-scripts/sdk_container/src/third_party/coreos-overlay/coreos-base/coreos-au-key/files/official-v2.pub.pem
+OEM_FILE=https://update.release.flatcar-linux.net/amd64-usr/4372.0.0/oem-azure.gz
+RUST_LOG=debug
+target/debug/download_sysext -p $PROD_KEY -m oem-azure.gz -o /var/tmp/outdir/ -u $OEM_FILE
+```
+
+That will download an OEM update payload from `$OEM_FILE`, parse its headers into metadata, data, and signature to verify against the data. The production payload key needs to be in place at `$PROD_KEY` and can be found [here](https://github.com/flatcar/scripts/blob/main/sdk_container/src/third_party/coreos-overlay/coreos-base/coreos-au-key/files/official-v2.pub.pem).
