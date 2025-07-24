@@ -13,7 +13,7 @@
 
 [![Github CI](https://github.com/flatcar/ue-rs/actions/workflows/ci.yaml/badge.svg)](https://github.com/flatcar/ue-rs/actions)
 
-`ue-rs` aims to be a drop-in reimplementation of [update_engine](https://github.com/flacar/update_engine/), written in Rust.
+`ue-rs` aims to be a drop-in reimplementation of [update_engine](https://github.com/flatcar/update_engine/), written in Rust.
 
 *Note*: this project is still proof-of-concept, highly experimental, not production-ready yet.
 
