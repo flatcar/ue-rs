@@ -49,9 +49,16 @@ pub struct DownloadResult {
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```no_run
 /// use std::path::Path;
-/// let hash = hash_on_disk::<omaha::Sha256>(Path::new("file.txt"), None)?;
+/// use ue_rs::hash_on_disk;
+/// use anyhow::Result;
+///
+/// fn main() -> Result<()> {
+///     let hash = hash_on_disk::<omaha::Sha256>(Path::new("file.txt"), None)?;
+///     println!("File hash: {}", hash);
+///     Ok(())
+/// }
 /// ```
 pub fn hash_on_disk<T: omaha::HashAlgo>(path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<T>> {
     let file = File::open(path).context(format!("failed to open path({:?})", path.display()))?;
@@ -214,19 +221,26 @@ where
 ///
 /// # Examples
 ///
-/// ```ignore
+/// ```no_run
 /// use reqwest::blocking::Client;
 /// use std::path::Path;
+/// use ue_rs::download_and_hash;
+/// use anyhow::Result;
+/// use url::Url;
 ///
-/// let client = Client::new();
-/// let result = download_and_hash(
-///     &client,
-///     "https://example.com/file.zip",
-///     Path::new("downloaded_file.zip"),
-///     None, // no SHA-256 validation
-///     None  // no SHA-1 validation
-/// )?;
-/// println!("SHA-256: {}", result.hash_sha256);
+/// fn main() -> Result<()> {
+///     let client = Client::new();
+///     let url = Url::parse("https://example.com/file.zip")?;
+///     let result = download_and_hash(
+///         &client,
+///         url,
+///         Path::new("downloaded_file.zip"),
+///         None, // no SHA-256 validation
+///         None  // no SHA-1 validation
+///     )?;
+///     println!("SHA-256: {}", result.hash_sha256);
+///     Ok(())
+/// }
 /// ```
 pub fn download_and_hash<U>(client: &Client, url: U, path: &Path, expected_sha256: Option<omaha::Hash<omaha::Sha256>>, expected_sha1: Option<omaha::Hash<omaha::Sha1>>) -> Result<DownloadResult>
 where
