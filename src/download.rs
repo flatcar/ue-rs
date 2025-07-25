@@ -13,7 +13,7 @@ use sha2::digest::DynDigest;
 const MAX_DOWNLOAD_RETRY: u32 = 20;
 
 /// Result of a successful download operation.
-/// 
+///
 /// Contains the computed hashes and file handle for the downloaded content.
 pub struct DownloadResult {
     /// SHA-256 hash of the downloaded file
@@ -32,7 +32,7 @@ pub struct DownloadResult {
 /// # Arguments
 ///
 /// * `path` - Path to the file to hash
-/// * `maxlen` - Optional maximum number of bytes to read from the file. If `None`, 
+/// * `maxlen` - Optional maximum number of bytes to read from the file. If `None`,
 ///   the entire file is hashed. If `Some(len)`, only the first `len` bytes are hashed.
 ///
 /// # Returns
@@ -217,10 +217,10 @@ where
 /// ```ignore
 /// use reqwest::blocking::Client;
 /// use std::path::Path;
-/// 
+///
 /// let client = Client::new();
 /// let result = download_and_hash(
-///     &client, 
+///     &client,
 ///     "https://example.com/file.zip",
 ///     Path::new("downloaded_file.zip"),
 ///     None, // no SHA-256 validation
