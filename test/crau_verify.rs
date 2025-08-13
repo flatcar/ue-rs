@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Extract signature from header.
     let sigbytes = delta_update::get_signatures_bytes(&upfile, &header, &mut delta_archive_manifest)?;
 
-    let tmpdir = tempfile::tempdir()?.into_path();
+    let tmpdir = tempfile::tempdir()?.keep();
     fs::create_dir_all(tmpdir.clone())?;
     let headerdatapath = tmpdir.join("ue_header_data");
 
