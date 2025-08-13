@@ -18,7 +18,7 @@ const MAX_DOWNLOAD_RETRY: u32 = 20;
 pub struct DownloadResult {
     /// SHA-256 hash of the downloaded file
     pub hash_sha256: omaha::Hash<omaha::Sha256>,
-    /// SHA-1 hash of the downloaded file  
+    /// SHA-1 hash of the downloaded file
     pub hash_sha1: omaha::Hash<omaha::Sha1>,
     /// File handle to the downloaded content on disk
     pub data: File,
@@ -206,7 +206,7 @@ where
 ///
 /// Returns a `DownloadResult` containing:
 /// * The computed SHA-256 hash
-/// * The computed SHA-1 hash  
+/// * The computed SHA-1 hash
 /// * A file handle to the downloaded content
 ///
 /// # Errors
