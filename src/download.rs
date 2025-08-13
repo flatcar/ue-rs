@@ -52,10 +52,10 @@ pub struct DownloadResult {
 /// ```no_run
 /// use std::path::Path;
 /// use ue_rs::hash_on_disk;
-/// use anyhow::Result;
 ///
-/// fn main() -> Result<()> {
-///     let hash = hash_on_disk::<omaha::Sha256>(Path::new("file.txt"), None)?;
+/// fn main() -> anyhow::Result<()> {
+///     let path = Path::new("/path/to/file.dat");
+///     let hash: omaha::Hash<omaha::Sha256> = hash_on_disk(path, None)?;
 ///     println!("File hash: {}", hash);
 ///     Ok(())
 /// }
@@ -101,32 +101,10 @@ pub fn hash_on_disk<T: omaha::HashAlgo>(path: &Path, maxlen: Option<usize>) -> R
     Ok(omaha::Hash::from_bytes(Box::new(hasher).finalize()))
 }
 
-/// Downloads a file from a URL and computes its hashes.
+/// Internal function that performs the actual download and hash verification.
 ///
-/// This is the internal implementation that performs a single download attempt.
-/// It downloads the content to the specified path, computes SHA-256 and SHA-1 hashes,
-/// and validates them against expected values if provided.
-///
-/// # Arguments
-///
-/// * `client` - HTTP client to use for the download
-/// * `url` - URL to download from
-/// * `path` - Local path where the file should be saved
-/// * `expected_sha256` - Optional expected SHA-256 hash for validation
-/// * `expected_sha1` - Optional expected SHA-1 hash for validation
-///
-/// # Returns
-///
-/// Returns a `DownloadResult` containing the computed hashes and file handle.
-///
-/// # Errors
-///
-/// This function will return an error if:
-/// * The HTTP request fails
-/// * The server returns a non-success status code
-/// * The file cannot be created at the specified path
-/// * Hash computation fails
-/// * Hash validation fails (when expected hashes are provided)
+/// This is the core implementation that downloads a file from a URL, saves it to disk,
+/// and verifies its hashes. Used internally by `download_and_hash` for retry logic.
 fn do_download_and_hash<U>(client: &Client, url: U, path: &Path, expected_sha256: Option<omaha::Hash<omaha::Sha256>>, expected_sha1: Option<omaha::Hash<omaha::Sha1>>) -> Result<DownloadResult>
 where
     U: reqwest::IntoUrl + Clone,
@@ -186,59 +164,51 @@ where
     })
 }
 
-/// Downloads a file from a URL with retry logic and hash verification.
+/// Downloads a file from a URL and computes its hashes with retry logic.
 ///
 /// This function downloads a file from the specified URL, saves it to the given path,
-/// and computes SHA-256 and SHA-1 hashes. It includes automatic retry logic to handle
-/// transient network errors.
+/// and computes both SHA-256 and SHA-1 hashes. It includes automatic retry logic
+/// (up to 20 attempts) to handle transient network failures.
 ///
 /// # Arguments
 ///
 /// * `client` - HTTP client to use for the download
-/// * `url` - URL to download from (must implement `reqwest::IntoUrl` and be cloneable)
-/// * `path` - Local path where the file should be saved
-/// * `expected_sha256` - Optional expected SHA-256 hash for validation. If provided,
-///   the computed hash must match or an error is returned.
-/// * `expected_sha1` - Optional expected SHA-1 hash for validation. If provided,
-///   the computed hash must match or an error is returned.
+/// * `url` - URL to download from (must implement `IntoUrl`)
+/// * `path` - Local file system path where the downloaded file will be saved
+/// * `expected_sha256` - Optional expected SHA-256 hash for verification
+/// * `expected_sha1` - Optional expected SHA-1 hash for verification
 ///
 /// # Returns
 ///
 /// Returns a `DownloadResult` containing:
-/// * The computed SHA-256 hash
-/// * The computed SHA-1 hash
-/// * A file handle to the downloaded content
+/// * Computed SHA-256 hash of the downloaded file
+/// * Computed SHA-1 hash of the downloaded file  
+/// * File handle to the downloaded content
 ///
 /// # Errors
 ///
 /// This function will return an error if:
-/// * All retry attempts fail due to network issues
-/// * The server returns a non-success HTTP status code
-/// * The file cannot be created at the specified path
-/// * Hash computation fails
-/// * Hash validation fails (when expected hashes are provided)
-/// * Any I/O operation fails during download or hash computation
+/// * The HTTP request fails (network error, invalid URL, etc.)
+/// * The server returns a non-success status code
+/// * File I/O operations fail (cannot create/write to destination path)
+/// * Hash verification fails (computed hash doesn't match expected)
+/// * Maximum retry attempts (20) are exceeded
 ///
 /// # Examples
 ///
 /// ```no_run
 /// use reqwest::blocking::Client;
 /// use std::path::Path;
-/// use ue_rs::download_and_hash;
-/// use anyhow::Result;
 /// use url::Url;
+/// use ue_rs::download_and_hash;
 ///
-/// fn main() -> Result<()> {
+/// fn main() -> anyhow::Result<()> {
 ///     let client = Client::new();
-///     let url = Url::parse("https://example.com/file.zip")?;
-///     let result = download_and_hash(
-///         &client,
-///         url,
-///         Path::new("downloaded_file.zip"),
-///         None, // no SHA-256 validation
-///         None  // no SHA-1 validation
-///     )?;
-///     println!("SHA-256: {}", result.hash_sha256);
+///     let url = Url::parse("https://example.com/file.dat")?;
+///     let path = Path::new("/tmp/downloaded_file.dat");
+///     
+///     let result = download_and_hash(&client, url, path, None, None)?;
+///     println!("Downloaded file with SHA-256: {}", result.hash_sha256);
 ///     Ok(())
 /// }
 /// ```
