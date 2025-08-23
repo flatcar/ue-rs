@@ -28,21 +28,14 @@ pub fn retry_loop<F, T, E>(mut func: F, max_tries: u32) -> Result<T, E>
 where
     F: FnMut() -> Result<T, E>,
 {
-    const RETRY_INTERVAL_MSEC: u64 = 1000;
+    const RETRY_INTERVAL: Duration = Duration::from_millis(1000);
 
-    let mut tries = 0;
-
-    loop {
+    for _ in 0..max_tries - 1 {
         match func() {
-            ok @ Ok(_) => return ok,
-            err @ Err(_) => {
-                tries += 1;
-
-                if tries >= max_tries {
-                    return err;
-                }
-                sleep(Duration::from_millis(RETRY_INTERVAL_MSEC));
-            }
+            Ok(ret) => return Ok(ret),
+            Err(_) => sleep(RETRY_INTERVAL),
         }
     }
+
+    func()
 }
