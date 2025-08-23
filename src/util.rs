@@ -39,3 +39,52 @@ where
 
     func()
 }
+
+#[cfg(test)]
+mod tests {
+    use std::cell::Cell;
+    use super::*;
+
+    #[test]
+    fn test_success_first_try() {
+        let res: Result<(), ()> = retry_loop(|| Ok(()), 3);
+        assert_eq!(res, Ok(()));
+    }
+
+    #[test]
+    fn test_fail_first_try() {
+        let res: Result<i32, ()> = retry_loop(|| Err(()), 3);
+        assert_eq!(res, Err(()));
+    }
+
+    #[test]
+    fn test_success_after_some_retries() {
+        let attempts = Cell::new(0);
+
+        let mut func = || {
+            let current: u8 = attempts.get();
+            attempts.set(current.wrapping_add(1));
+            if current < 2 {
+                Err(())
+            } else {
+                Ok(())
+            }
+        };
+
+        let res = retry_loop(&mut func, 5);
+        assert_eq!(res, Ok(()));
+        assert_eq!(attempts.get(), 3);
+    }
+
+    #[test]
+    fn test_fail_after_max_tries() {
+        let attempts = Cell::new(0);
+        let mut func = || {
+            attempts.set(attempts.get() + 1);
+            Err(())
+        };
+        let res: Result<(), ()> = retry_loop(&mut func, 5);
+        assert_eq!(res, Err(()));
+        assert_eq!(attempts.get(), 5);
+    }
+}
