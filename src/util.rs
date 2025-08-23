@@ -24,12 +24,12 @@ use std::thread::sleep;
 ///
 /// let result = retry_loop(|| read_possibly_extant_file("might_exist.txt"), 3);
 /// ```
-const RETRY_INTERVAL_MSEC: u64 = 1000;
-
 pub fn retry_loop<F, T, E>(mut func: F, max_tries: u32) -> Result<T, E>
 where
     F: FnMut() -> Result<T, E>,
 {
+    const RETRY_INTERVAL_MSEC: u64 = 1000;
+
     let mut tries = 0;
 
     loop {
