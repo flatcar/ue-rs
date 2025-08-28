@@ -100,3 +100,66 @@ fn try_from_hex_string<T: Hasher>(s: &str) -> Result<T::Output, String> {
         Err(format!("invalid digest length: {}", bytes.len()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Hasher;
+    use super::{Sha256, Sha1, try_from_hex_string};
+    use sha1::Digest;
+
+    const TEST_DATA: &[u8] = b"test string";
+
+    #[test]
+    fn sha1_new_finalize() {
+        let exp: [u8; 20] = {
+            let mut digest = sha1::Sha1::default();
+            digest.update(TEST_DATA);
+            digest.finalize().into()
+        };
+
+        let got = {
+            let mut sha1 = Sha1::new();
+            sha1.update(TEST_DATA);
+            sha1.finalize()
+        };
+
+        assert_eq!(got, exp);
+    }
+
+    #[test]
+    fn sha256_new_finalize() {
+        let exp: [u8; 32] = {
+            let mut digest = sha2::Sha256::default();
+            digest.update(TEST_DATA);
+            digest.finalize().into()
+        };
+
+        let got = {
+            let mut sha256 = Sha256::new();
+            sha256.update(TEST_DATA);
+            sha256.finalize()
+        };
+
+        assert_eq!(got, exp);
+    }
+
+    #[test]
+    fn try_from_hex_string_sha1() {
+        let hex_string = "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d";
+        let exp_bytes = [170, 244, 198, 29, 220, 197, 232, 162, 218, 190, 222, 15, 59, 72, 44, 217, 174, 169, 67, 77];
+        let sha1_digest = try_from_hex_string::<Sha1>(hex_string);
+
+        assert!(sha1_digest.is_ok());
+        assert_eq!(sha1_digest.unwrap(), exp_bytes);
+    }
+
+    #[test]
+    fn try_from_hex_string_sha256() {
+        let hex_string = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+        let exp_bytes = [44, 242, 77, 186, 95, 176, 163, 14, 38, 232, 59, 42, 197, 185, 226, 158, 27, 22, 30, 92, 31, 167, 66, 94, 115, 4, 51, 98, 147, 139, 152, 36];
+        let sha256_digest = try_from_hex_string::<Sha256>(hex_string);
+
+        assert!(sha256_digest.is_ok());
+        assert_eq!(sha256_digest.unwrap(), exp_bytes);
+    }
+}
