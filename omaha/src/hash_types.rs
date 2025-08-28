@@ -20,7 +20,7 @@ pub struct Sha1;
 #[derive(PartialEq, Eq, Clone)]
 pub struct Sha256;
 
-pub trait HashAlgo {
+pub trait Hasher {
     const HASH_NAME: &'static str;
 
     type Output: AsRef<[u8]> + AsMut<[u8]> + Default + Sized + Eq;
@@ -29,7 +29,7 @@ pub trait HashAlgo {
     fn from_boxed(s: Box<[u8]>) -> Self::Output;
 }
 
-impl HashAlgo for Sha1 {
+impl Hasher for Sha1 {
     const HASH_NAME: &'static str = "Sha1";
     type Output = [u8; 20];
 
@@ -52,7 +52,7 @@ impl HashAlgo for Sha1 {
     }
 }
 
-impl HashAlgo for Sha256 {
+impl Hasher for Sha256 {
     const HASH_NAME: &'static str = "Sha256";
     type Output = [u8; 32];
 
@@ -76,15 +76,15 @@ impl HashAlgo for Sha256 {
 }
 
 #[derive(PartialEq, Eq, Clone)]
-pub struct Hash<T: HashAlgo>(T::Output);
+pub struct Hash<T: Hasher>(T::Output);
 
-impl<T: HashAlgo> Hash<T> {
+impl<T: Hasher> Hash<T> {
     pub fn from_bytes(digest: Box<[u8]>) -> Self {
         Self(T::from_boxed(digest))
     }
 }
 
-impl<T: HashAlgo> fmt::Debug for Hash<T> {
+impl<T: Hasher> fmt::Debug for Hash<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let tn = format!("Hash<{}>", T::HASH_NAME);
         #[rustfmt::skip]
@@ -95,7 +95,7 @@ impl<T: HashAlgo> fmt::Debug for Hash<T> {
     }
 }
 
-impl<T: HashAlgo> fmt::Display for Hash<T> {
+impl<T: Hasher> fmt::Display for Hash<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[rustfmt::skip]
         let hash_hex = Hex::encode_to_string(self.0.as_ref())
@@ -105,7 +105,7 @@ impl<T: HashAlgo> fmt::Display for Hash<T> {
     }
 }
 
-impl<T: HashAlgo> str::FromStr for Hash<T> {
+impl<T: Hasher> str::FromStr for Hash<T> {
     type Err = CodecError;
 
     fn from_str(hash_base64: &str) -> Result<Self, Self::Err> {
@@ -113,7 +113,7 @@ impl<T: HashAlgo> str::FromStr for Hash<T> {
     }
 }
 
-impl<T: HashAlgo> From<Hash<T>> for Vec<u8> {
+impl<T: Hasher> From<Hash<T>> for Vec<u8> {
     fn from(val: Hash<T>) -> Self {
         let mut vec = Vec::new();
         vec.append(&mut val.0.as_ref().to_vec());
@@ -121,7 +121,7 @@ impl<T: HashAlgo> From<Hash<T>> for Vec<u8> {
     }
 }
 
-impl<T: HashAlgo> Hash<T> {
+impl<T: Hasher> Hash<T> {
     #[inline]
     fn decode<D: Decoder>(hash: &str) -> anyhow::Result<Self, CodecError> {
         let mut digest = T::Output::default();
