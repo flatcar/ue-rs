@@ -49,7 +49,7 @@ impl Package<'_> {
     // Return Sha256 hash of data in the given path.
     // If maxlen is None, a simple read to the end of the file.
     // If maxlen is Some, read only until the given length.
-    fn hash_on_disk<T: omaha::HashAlgo>(&mut self, path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<T>> {
+    fn hash_on_disk<T: omaha::Hasher>(&mut self, path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<T>> {
         hash_on_disk::<T>(path, maxlen)
     }
 

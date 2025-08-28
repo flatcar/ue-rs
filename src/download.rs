@@ -18,7 +18,7 @@ pub struct DownloadResult {
     pub data: File,
 }
 
-pub fn hash_on_disk<T: omaha::HashAlgo>(path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<T>> {
+pub fn hash_on_disk<T: omaha::Hasher>(path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<T>> {
     let file = File::open(path).context(format!("failed to open path({:?})", path.display()))?;
     let mut hasher = T::hasher();
 
