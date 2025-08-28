@@ -13,7 +13,10 @@ pub type Sha256Digest = <Sha256 as Hasher>::Output;
 
 pub trait Hasher {
     const HASH_NAME: &'static str;
+    const FINGERPRINT_SIZE: usize;
 
+    // TODO: switch to syntax like `type Output = [u8; Self::FINGERPRINT_SIZE];`
+    //       when Rust RFC #2532 (associated type defaults) stabilises
     type Output: AsRef<[u8]> + AsMut<[u8]> + Default + Sized + PartialEq + Eq + std::fmt::Debug;
 
     fn new() -> Self;
@@ -24,7 +27,9 @@ pub trait Hasher {
 
 impl Hasher for Sha1 {
     const HASH_NAME: &'static str = "Sha1";
-    type Output = [u8; 20];
+    const FINGERPRINT_SIZE: usize = 20;
+
+    type Output = [u8; Self::FINGERPRINT_SIZE];
 
     fn new() -> Self {
         Self(sha1::Sha1::new())
@@ -42,8 +47,8 @@ impl Hasher for Sha1 {
         let bytes = (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16)).collect::<Result<Vec<u8>, _>>().map_err(|e| e.to_string())?;
 
         match bytes.len() {
-            20 => {
-                let mut ret = [0u8; 20];
+            Self::FINGERPRINT_SIZE => {
+                let mut ret = [0u8; Self::FINGERPRINT_SIZE];
                 ret.copy_from_slice(&bytes);
                 Ok(ret)
             }
@@ -54,7 +59,9 @@ impl Hasher for Sha1 {
 
 impl Hasher for Sha256 {
     const HASH_NAME: &'static str = "Sha256";
-    type Output = [u8; 32];
+    const FINGERPRINT_SIZE: usize = 32;
+
+    type Output = [u8; Self::FINGERPRINT_SIZE];
 
     fn new() -> Self {
         Self(sha2::Sha256::new())
@@ -71,8 +78,8 @@ impl Hasher for Sha256 {
         let bytes = (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16)).collect::<Result<Vec<u8>, _>>().map_err(|e| e.to_string())?;
 
         match bytes.len() {
-            32 => {
-                let mut ret = [0u8; 32];
+            Self::FINGERPRINT_SIZE => {
+                let mut ret = [0u8; Self::FINGERPRINT_SIZE];
                 ret.copy_from_slice(&bytes);
                 Ok(ret)
             }
