@@ -44,16 +44,7 @@ impl Hasher for Sha1 {
     }
 
     fn try_from_hex_string(s: &str) -> Result<Self::Output, String> {
-        let bytes = (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16)).collect::<Result<Vec<u8>, _>>().map_err(|e| e.to_string())?;
-
-        match bytes.len() {
-            Self::FINGERPRINT_SIZE => {
-                let mut ret = [0u8; Self::FINGERPRINT_SIZE];
-                ret.copy_from_slice(&bytes);
-                Ok(ret)
-            }
-            _ => Err(format!("invalid digest length: {}", bytes.len())),
-        }
+        try_from_hex_string::<Self>(s)
     }
 }
 
@@ -75,15 +66,18 @@ impl Hasher for Sha256 {
         self.0.finalize().into()
     }
     fn try_from_hex_string(s: &str) -> Result<Self::Output, String> {
-        let bytes = (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16)).collect::<Result<Vec<u8>, _>>().map_err(|e| e.to_string())?;
+        try_from_hex_string::<Self>(s)
+    }
+}
 
-        match bytes.len() {
-            Self::FINGERPRINT_SIZE => {
-                let mut ret = [0u8; Self::FINGERPRINT_SIZE];
-                ret.copy_from_slice(&bytes);
-                Ok(ret)
-            }
-            _ => Err(format!("invalid digest length: {}", bytes.len())),
-        }
+fn try_from_hex_string<T: Hasher>(s: &str) -> Result<T::Output, String> {
+    let bytes = (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16)).collect::<Result<Vec<u8>, _>>().map_err(|e| e.to_string())?;
+
+    if bytes.len() == T::FINGERPRINT_SIZE {
+        let mut ret = T::Output::default();
+        ret.as_mut().copy_from_slice(&bytes);
+        Ok(ret)
+    } else {
+        Err(format!("invalid digest length: {}", bytes.len()))
     }
 }
