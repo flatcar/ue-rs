@@ -4,9 +4,10 @@ use std::borrow::Cow;
 use anyhow::{Context, Result};
 use hard_xml::XmlRead;
 use url::Url;
+use omaha::Sha256Digest;
 
-fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, omaha::Hash<omaha::Sha256>)>> {
-    let mut to_download: Vec<(Url, omaha::Hash<_>)> = Vec::new();
+fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, Sha256Digest)>> {
+    let mut to_download: Vec<(Url, Sha256Digest)> = Vec::new();
 
     for app in &resp.apps {
         let manifest = &app.update_check.manifest;
@@ -83,9 +84,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         let res = ue_rs::download_and_hash(&client, url.clone(), &path, Some(expected_sha256.clone()), None).context(format!("download_and_hash({url:?}) failed"))?;
         tempdir.close()?;
 
-        println!("\texpected sha256:   {}", expected_sha256);
-        println!("\tcalculated sha256: {}", res.hash_sha256);
-        println!("\tsha256 match?      {}", expected_sha256 == res.hash_sha256);
+        println!("\texpected sha256:   {:?}", expected_sha256);
+        println!("\tcalculated sha256: {:?}", res.hash_sha256);
+        println!("\tsha256 match?      {:?}", expected_sha256 == res.hash_sha256);
     }
 
     Ok(())

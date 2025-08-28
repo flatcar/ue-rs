@@ -1,54 +1,54 @@
-use std::fmt;
 use std::str;
-
 use sha2::Digest;
 
-use anyhow::{Error as CodecError, anyhow};
+#[derive(Clone)]
+pub struct Sha1(sha1::Sha1);
 
-#[rustfmt::skip]
-use ct_codecs::{
-    Base64,
-    Hex,
+#[derive(Clone)]
+pub struct Sha256(sha2::Sha256);
 
-    Encoder,
-    Decoder
-};
+pub type Sha1Digest = <Sha1 as Hasher>::Output;
 
-#[derive(PartialEq, Eq, Clone)]
-pub struct Sha1;
-
-#[derive(PartialEq, Eq, Clone)]
-pub struct Sha256;
+pub type Sha256Digest = <Sha256 as Hasher>::Output;
 
 pub trait Hasher {
     const HASH_NAME: &'static str;
 
-    type Output: AsRef<[u8]> + AsMut<[u8]> + Default + Sized + Eq;
+    type Output: AsRef<[u8]> + AsMut<[u8]> + Default + Sized + PartialEq + Eq + std::fmt::Debug;
 
-    fn hasher() -> impl digest::DynDigest;
-    fn from_boxed(s: Box<[u8]>) -> Self::Output;
+    fn new() -> Self;
+    fn update(&mut self, data: &[u8]);
+    fn finalize(self) -> Self::Output;
+    fn try_from_hex_string(s: &str) -> Result<Self::Output, String>;
 }
 
 impl Hasher for Sha1 {
     const HASH_NAME: &'static str = "Sha1";
     type Output = [u8; 20];
 
-    fn hasher() -> impl digest::DynDigest {
-        sha1::Sha1::new()
+    fn new() -> Self {
+        Self(sha1::Sha1::new())
     }
 
-    fn from_boxed(s: Box<[u8]>) -> Self::Output {
-        let mut v = s.into_vec();
-        v.resize(Self::Output::default().len(), 0);
-        let boxed_array: Box<Self::Output> = match v.into_boxed_slice().try_into() {
-            Ok(a) => a,
-            Err(e) => {
-                println!("Unexpected length {}", e.len());
-                #[allow(clippy::box_default)]
-                Box::new(Self::Output::default())
+    fn update(&mut self, data: &[u8]) {
+        self.0.update(data)
+    }
+
+    fn finalize(self) -> Self::Output {
+        self.0.finalize().into()
+    }
+
+    fn try_from_hex_string(s: &str) -> Result<Self::Output, String> {
+        let bytes = (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16)).collect::<Result<Vec<u8>, _>>().map_err(|e| e.to_string())?;
+
+        match bytes.len() {
+            20 => {
+                let mut ret = [0u8; 20];
+                ret.copy_from_slice(&bytes);
+                Ok(ret)
             }
-        };
-        *boxed_array
+            _ => Err(format!("invalid digest length: {}", bytes.len())),
+        }
     }
 }
 
@@ -56,84 +56,27 @@ impl Hasher for Sha256 {
     const HASH_NAME: &'static str = "Sha256";
     type Output = [u8; 32];
 
-    fn hasher() -> impl digest::DynDigest {
-        sha2::Sha256::new()
+    fn new() -> Self {
+        Self(sha2::Sha256::new())
     }
 
-    fn from_boxed(s: Box<[u8]>) -> Self::Output {
-        let mut v = s.into_vec();
-        v.resize(Self::Output::default().len(), 0);
-        let boxed_array: Box<Self::Output> = match v.into_boxed_slice().try_into() {
-            Ok(a) => a,
-            Err(e) => {
-                println!("Unexpected length {}", e.len());
-                #[allow(clippy::box_default)]
-                Box::new(Self::Output::default())
+    fn update(&mut self, data: &[u8]) {
+        self.0.update(data)
+    }
+
+    fn finalize(self) -> Self::Output {
+        self.0.finalize().into()
+    }
+    fn try_from_hex_string(s: &str) -> Result<Self::Output, String> {
+        let bytes = (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16)).collect::<Result<Vec<u8>, _>>().map_err(|e| e.to_string())?;
+
+        match bytes.len() {
+            32 => {
+                let mut ret = [0u8; 32];
+                ret.copy_from_slice(&bytes);
+                Ok(ret)
             }
-        };
-        *boxed_array
-    }
-}
-
-#[derive(PartialEq, Eq, Clone)]
-pub struct Hash<T: Hasher>(T::Output);
-
-impl<T: Hasher> Hash<T> {
-    pub fn from_bytes(digest: Box<[u8]>) -> Self {
-        Self(T::from_boxed(digest))
-    }
-}
-
-impl<T: Hasher> fmt::Debug for Hash<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let tn = format!("Hash<{}>", T::HASH_NAME);
-        #[rustfmt::skip]
-        let hash_hex = Hex::encode_to_string(self.0.as_ref())
-            .map_err(|_| fmt::Error)?;
-
-        f.debug_tuple(&tn).field(&hash_hex).finish()
-    }
-}
-
-impl<T: Hasher> fmt::Display for Hash<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        #[rustfmt::skip]
-        let hash_hex = Hex::encode_to_string(self.0.as_ref())
-            .map_err(|_| fmt::Error)?;
-
-        f.write_str(&hash_hex)
-    }
-}
-
-impl<T: Hasher> str::FromStr for Hash<T> {
-    type Err = CodecError;
-
-    fn from_str(hash_base64: &str) -> Result<Self, Self::Err> {
-        Self::from_base64(hash_base64)
-    }
-}
-
-impl<T: Hasher> From<Hash<T>> for Vec<u8> {
-    fn from(val: Hash<T>) -> Self {
-        let mut vec = Vec::new();
-        vec.append(&mut val.0.as_ref().to_vec());
-        vec
-    }
-}
-
-impl<T: Hasher> Hash<T> {
-    #[inline]
-    fn decode<D: Decoder>(hash: &str) -> anyhow::Result<Self, CodecError> {
-        let mut digest = T::Output::default();
-        D::decode(digest.as_mut(), hash, None).map_err(|_| anyhow!("decode ({}) failed", hash))?;
-        Ok(Self(digest))
-    }
-
-    pub fn from_base64(hash_base64: &str) -> Result<Self, CodecError> {
-        Self::decode::<Base64>(hash_base64)
-    }
-
-    pub fn from_hex(hash_hex: &str) -> Result<Self, CodecError> {
-        Self::decode::<Hex>(hash_hex)
+            _ => Err(format!("invalid digest length: {}", bytes.len())),
+        }
     }
 }
