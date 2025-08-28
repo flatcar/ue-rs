@@ -5,17 +5,23 @@ use std::fmt;
 use hard_xml::XmlRead;
 use url::Url;
 
-use crate as omaha;
-use self::omaha::{Sha1, Sha256};
+use crate::{FileSize, Uuid, Sha1Digest, Sha256Digest};
 
-mod sha256_hex {
-    use crate as omaha;
-    use self::omaha::Sha256;
-    use anyhow::Error as CodecError;
+mod sha256_from_str {
+    use crate::{Hasher, Sha256, Sha256Digest};
 
     #[inline]
-    pub(crate) fn from_str(s: &str) -> Result<omaha::Hash<Sha256>, CodecError> {
-        <omaha::Hash<Sha256>>::from_hex(s)
+    pub(crate) fn from_str(s: &str) -> Result<Sha256Digest, String> {
+        <Sha256 as Hasher>::try_from_hex_string(s)
+    }
+}
+
+mod sha1_from_str {
+    use crate::{Hasher, Sha1, Sha1Digest};
+
+    #[inline]
+    pub(crate) fn from_str(s: &str) -> Result<Sha1Digest, String> {
+        <Sha1 as Hasher>::try_from_hex_string(s)
     }
 }
 
@@ -25,17 +31,17 @@ pub struct Package<'a> {
     #[xml(attr = "name")]
     pub name: Cow<'a, str>,
 
-    #[xml(attr = "hash")]
-    pub hash: Option<omaha::Hash<Sha1>>,
+    #[xml(attr = "hash", with = "sha1_from_str")]
+    pub hash: Option<Sha1Digest>,
 
     #[xml(attr = "size")]
-    pub size: omaha::FileSize,
+    pub size: FileSize,
 
     #[xml(attr = "required")]
     pub required: bool,
 
-    #[xml(attr = "hash_sha256", with = "sha256_hex")]
-    pub hash_sha256: Option<omaha::Hash<Sha256>>,
+    #[xml(attr = "hash_sha256", with = "sha256_from_str")]
+    pub hash_sha256: Option<Sha256Digest>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -109,8 +115,8 @@ pub struct Action {
     #[xml(attr = "event")]
     pub event: ActionEvent,
 
-    #[xml(attr = "sha256")]
-    pub sha256: omaha::Hash<Sha256>,
+    #[xml(attr = "sha256", with = "sha256_from_str")]
+    pub sha256: Sha256Digest,
 
     #[xml(attr = "DisablePayloadBackoff")]
     pub disable_payload_backoff: Option<bool>,
@@ -366,7 +372,7 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
 #[xml(tag = "app")]
 pub struct App<'a> {
     #[xml(attr = "appid")]
-    pub id: omaha::Uuid,
+    pub id: Uuid,
 
     #[xml(attr = "status")]
     pub status: Cow<'a, str>,
