@@ -17,10 +17,10 @@ impl FileSize {
 }
 
 impl str::FromStr for FileSize {
-    type Err = <usize as str::FromStr>::Err;
+    type Err = crate::Error;
 
     fn from_str(x: &str) -> Result<Self, Self::Err> {
-        usize::from_str(x).map(Self)
+        usize::from_str(x).map(Self).map_err(crate::Error::ParseFileSize)
     }
 }
 
