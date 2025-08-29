@@ -1,5 +1,7 @@
 use std::str;
 use sha2::Digest;
+use crate::error::Error;
+use crate::result::Result;
 
 /// Wrapper struct around the SHA1 hashing algorithm from the `sha1` crate.
 #[derive(Clone)]
@@ -39,7 +41,7 @@ pub trait Hasher {
 
     /// Construct a hash of the output format of the associated hashing
     /// algorithm using a provided string.
-    fn try_from_hex_string(s: &str) -> Result<Self::Output, String>;
+    fn try_from_hex_string(s: &str) -> Result<Self::Output>;
 }
 
 impl Hasher for Sha1 {
@@ -60,7 +62,7 @@ impl Hasher for Sha1 {
         self.0.finalize().into()
     }
 
-    fn try_from_hex_string(s: &str) -> Result<Self::Output, String> {
+    fn try_from_hex_string(s: &str) -> Result<Self::Output> {
         try_from_hex_string::<Self>(s)
     }
 }
@@ -82,22 +84,25 @@ impl Hasher for Sha256 {
     fn finalize(self) -> Self::Output {
         self.0.finalize().into()
     }
-    fn try_from_hex_string(s: &str) -> Result<Self::Output, String> {
+    fn try_from_hex_string(s: &str) -> Result<Self::Output> {
         try_from_hex_string::<Self>(s)
     }
 }
 
 /// Parse a hexadecimal string into the output of the generically typed hashing
 /// algorithm.
-fn try_from_hex_string<T: Hasher>(s: &str) -> Result<T::Output, String> {
-    let bytes = (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16)).collect::<Result<Vec<u8>, _>>().map_err(|e| e.to_string())?;
+fn try_from_hex_string<T: Hasher>(s: &str) -> Result<T::Output> {
+    let bytes = (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).map_err(Error::TryFromHex)).collect::<Result<Vec<u8>>>()?;
 
     if bytes.len() == T::FINGERPRINT_SIZE {
         let mut ret = T::Output::default();
         ret.as_mut().copy_from_slice(&bytes);
         Ok(ret)
     } else {
-        Err(format!("invalid digest length: {}", bytes.len()))
+        Err(Error::InvalidDigestLength {
+            expected: T::FINGERPRINT_SIZE,
+            actual: bytes.len(),
+        })
     }
 }
 

@@ -5,22 +5,25 @@ use std::fmt;
 use hard_xml::XmlRead;
 use url::Url;
 
-use crate::{FileSize, Uuid, Sha1Digest, Sha256Digest};
+use crate::{FileSize, Uuid, Sha1Digest, Sha256Digest, Error};
+use crate::Error::{UnknownActionEvent, UnknownSuccessAction};
 
 mod sha256_from_str {
     use crate::{Hasher, Sha256, Sha256Digest};
+    use crate::Result;
 
     #[inline]
-    pub(crate) fn from_str(s: &str) -> Result<Sha256Digest, String> {
+    pub(crate) fn from_str(s: &str) -> Result<Sha256Digest> {
         <Sha256 as Hasher>::try_from_hex_string(s)
     }
 }
 
 mod sha1_from_str {
     use crate::{Hasher, Sha1, Sha1Digest};
+    use crate::Result;
 
     #[inline]
-    pub(crate) fn from_str(s: &str) -> Result<Sha1Digest, String> {
+    pub(crate) fn from_str(s: &str) -> Result<Sha1Digest> {
         <Sha1 as Hasher>::try_from_hex_string(s)
     }
 }
@@ -64,7 +67,7 @@ impl fmt::Display for ActionEvent {
 }
 
 impl FromStr for ActionEvent {
-    type Err = String;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
@@ -73,7 +76,7 @@ impl FromStr for ActionEvent {
             "postinstall" => ActionEvent::PostInstall,
             "update" => ActionEvent::Update,
 
-            _ => return Err(format!("unknown success action \"{s}\"")),
+            _ => return Err(UnknownActionEvent(s.to_string())),
         })
     }
 }
@@ -96,7 +99,7 @@ impl fmt::Display for SuccessAction {
 }
 
 impl FromStr for SuccessAction {
-    type Err = String;
+    type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
@@ -104,7 +107,7 @@ impl FromStr for SuccessAction {
             "exitsilently" => SuccessAction::ExitSilently,
             "exitsilentlyonlaunchcmd" => SuccessAction::ExitSilentlyOnLaunchCommand,
 
-            _ => return Err(format!("unknown success action \"{s}\"")),
+            _ => return Err(UnknownSuccessAction(s.to_string())),
         })
     }
 }

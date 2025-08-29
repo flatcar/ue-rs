@@ -10,5 +10,11 @@ pub use self::uuid::*;
 pub mod request;
 pub use request::Request;
 
+pub mod error;
 pub mod response;
+pub mod result;
+
+pub use error::Error;
+pub use result::Result;
+
 pub use response::Response;
