@@ -67,6 +67,16 @@ impl Hasher for Sha1 {
     }
 }
 
+pub(crate) mod sha1_from_str {
+    use crate::{Hasher, Sha1, Sha1Digest};
+    use crate::Result;
+
+    #[inline]
+    pub(crate) fn from_str(s: &str) -> Result<Sha1Digest> {
+        <Sha1 as Hasher>::try_from_hex_string(s)
+    }
+}
+
 impl Hasher for Sha256 {
     const HASH_NAME: &'static str = "Sha256";
     const FINGERPRINT_SIZE: usize = 32;
@@ -86,6 +96,16 @@ impl Hasher for Sha256 {
     }
     fn try_from_hex_string(s: &str) -> Result<Self::Output> {
         try_from_hex_string::<Self>(s)
+    }
+}
+
+pub(crate) mod sha256_from_str {
+    use crate::{Hasher, Sha256, Sha256Digest};
+    use crate::Result;
+
+    #[inline]
+    pub(crate) fn from_str(s: &str) -> Result<Sha256Digest> {
+        <Sha256 as Hasher>::try_from_hex_string(s)
     }
 }
 
