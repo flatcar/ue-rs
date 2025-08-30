@@ -2,10 +2,12 @@ use std::borrow::Cow;
 use std::str::FromStr;
 use std::fmt;
 
+use crate::uuid::braced_uuid;
+
 use hard_xml::XmlRead;
 use url::Url;
 
-use crate::{FileSize, Uuid, Sha1Digest, Sha256Digest, Error};
+use crate::{FileSize, Sha1Digest, Sha256Digest, Error};
 use crate::Error::{UnknownActionEvent, UnknownSuccessAction};
 
 mod sha256_from_str {
@@ -358,8 +360,8 @@ impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
 #[derive(XmlRead, Debug)]
 #[xml(tag = "app")]
 pub struct App<'a> {
-    #[xml(attr = "appid")]
-    pub id: Uuid,
+    #[xml(attr = "appid", with = "braced_uuid")]
+    pub id: uuid::Uuid,
 
     #[xml(attr = "status")]
     pub status: Cow<'a, str>,
@@ -376,4 +378,35 @@ pub struct Response<'a> {
 
     #[xml(child = "app")]
     pub apps: Vec<App<'a>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use hard_xml::XmlRead;
+    use crate::response::{App, Manifest, UpdateCheck};
+
+    const TEST_UUID: &str = "67e55044-10b1-426f-9247-bb680e5fe0c8";
+
+    #[test]
+    fn app_xml_read() {
+        let xml = format!(
+            "<app appid=\"{{{}}}\" status=\"\"><updatecheck status=\"\"><manifest version=\"\"/></updatecheck></app>",
+            TEST_UUID
+        );
+        let app = App::from_str(xml.as_str()).unwrap();
+        let exp = App {
+            id: uuid::uuid!(TEST_UUID),
+            status: Default::default(),
+            update_check: UpdateCheck {
+                status: Default::default(),
+                urls: vec![],
+                manifest: Manifest {
+                    version: Default::default(),
+                    packages: vec![],
+                    actions: vec![],
+                },
+            },
+        };
+        assert_eq!(app.id, exp.id);
+    }
 }

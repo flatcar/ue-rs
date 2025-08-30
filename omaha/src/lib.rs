@@ -4,8 +4,7 @@ pub use self::hash_types::*;
 mod types;
 pub use self::types::*;
 
-mod uuid;
-pub use self::uuid::*;
+pub(crate) mod uuid;
 
 pub mod request;
 pub use request::Request;
