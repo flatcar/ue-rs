@@ -13,6 +13,7 @@ pub enum Error {
     UnknownSuccessAction(String),
     ParseFileSize(ParseIntError),
     ParseUuid(uuid::Error),
+    ParseUrl(url::ParseError),
 }
 
 impl Display for Error {
@@ -30,6 +31,7 @@ impl Display for Error {
             Error::UnknownSuccessAction(action) => write!(fmt, "unknown success action: {}", action),
             Error::ParseFileSize(err) => write!(fmt, "failed to parse file size: {}", err),
             Error::ParseUuid(err) => write!(fmt, "failed to parse uuid: {}", err),
+            Error::ParseUrl(err) => write!(fmt, "failed to parse url: {}", err),
         }
     }
 }
