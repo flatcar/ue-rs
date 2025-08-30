@@ -1,12 +1,11 @@
 use std::borrow::Cow;
 use std::str::FromStr;
 use std::fmt;
-
 use crate::uuid::braced_uuid;
 
-use hard_xml::{XmlError, XmlRead};
+use hard_xml::{XmlError, XmlRead, XmlReader, XmlResult, XmlWrite};
 use url::Url;
-
+use hard_xml::xmlparser::{ElementEnd, Token};
 use crate::{FileSize, Sha1Digest, Sha256Digest, Error, sha1_from_str, sha256_from_str};
 use crate::Error::{UnknownActionEvent, UnknownSuccessAction};
 
@@ -115,197 +114,94 @@ pub struct Action {
 // this lets us do `update_check.urls[n]` instead of `update_check.urls.urls[n]`.
 // just nicer to use.
 
-#[derive(Debug)]
+#[derive(XmlRead, Debug)]
+#[xml(tag = "manifest")]
 pub struct Manifest<'a> {
+    #[xml(attr = "version")]
     pub version: Cow<'a, str>,
+
+    #[xml(child = "packages")]
     pub packages: Vec<Package<'a>>,
+
+    #[xml(child = "actions")]
     pub actions: Vec<Action>,
 }
 
-impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for Manifest<'a> {
-    fn from_reader(reader: &mut hard_xml::XmlReader<'__input>) -> hard_xml::XmlResult<Self> {
-        use hard_xml::xmlparser::{ElementEnd, Token};
-        let mut __self_version = None;
-        let mut __self_packages = Vec::new();
-        let mut __self_actions = Vec::new();
-        reader.read_till_element_start("manifest")?;
-
-        while let Some((k, v)) = reader.find_attribute()? {
-            if k == "version" {
-                __self_version = Some(v);
-            }
-        }
-
-        if let Ok(Token::ElementEnd {
-            end: ElementEnd::Empty,
-            ..
-        }) = reader.next().ok_or(xml_missing_field("Manifest", "version"))?
-        {
-            return Ok(Manifest {
-                version: __self_version.ok_or(xml_missing_field("Manifest", "version"))?,
-                packages: __self_packages,
-                actions: __self_actions,
-            });
-        }
-
-        while let Some(tag) = reader.find_element_start(Some("manifest"))? {
-            match tag {
-                "packages" => {
-                    reader.read_till_element_start("packages")?;
-
-                    while (reader.find_attribute()?).is_some() {}
-
-                    if let Ok(Token::ElementEnd {
-                        end: ElementEnd::Empty,
-                        ..
-                    }) = reader.next().ok_or(xml_missing_field("Manifest", "version"))?
-                    {
-                        continue;
-                    }
-
-                    while let Some(__tag) = reader.find_element_start(Some("packages"))? {
-                        match __tag {
-                            "package" => {
-                                __self_packages.push(<Package<'a> as hard_xml::XmlRead>::from_reader(reader)?);
-                            }
-
-                            tag => {
-                                reader.next();
-                                reader.read_to_end(tag)?;
-                            }
-                        }
-                    }
-                }
-
-                "actions" => {
-                    reader.read_till_element_start("actions")?;
-
-                    while (reader.find_attribute()?).is_some() {}
-
-                    if let Ok(Token::ElementEnd {
-                        end: ElementEnd::Empty,
-                        ..
-                    }) = reader.next().ok_or(xml_missing_field("Manifest", "version"))?
-                    {
-                        continue;
-                    }
-
-                    while let Some(__tag) = reader.find_element_start(Some("actions"))? {
-                        match __tag {
-                            "action" => {
-                                __self_actions.push(<Action as hard_xml::XmlRead>::from_reader(reader)?);
-                            }
-
-                            tag => {
-                                reader.next();
-                                reader.read_to_end(tag)?;
-                            }
-                        }
-                    }
-                }
-
-                tag => {
-                    reader.next();
-                    reader.read_to_end(tag)?;
-                }
-            }
-        }
-
-        Ok(Manifest {
-            version: __self_version.ok_or(xml_missing_field("Manifest", "version"))?,
-            packages: __self_packages,
-            actions: __self_actions,
-        })
-    }
-}
 #[derive(Debug)]
-pub struct UpdateCheck<'a> {
-    pub status: Cow<'a, str>,
-    pub urls: Vec<Url>,
+#[cfg_attr(test, derive(Default))]
+pub struct Urls(Vec<Url>);
 
-    pub manifest: Manifest<'a>,
+impl std::ops::Deref for Urls {
+    type Target = Vec<Url>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-impl<'__input: 'a, 'a> hard_xml::XmlRead<'__input> for UpdateCheck<'a> {
-    fn from_reader(reader: &mut hard_xml::XmlReader<'__input>) -> hard_xml::XmlResult<Self> {
-        use hard_xml::xmlparser::{ElementEnd, Token};
-        use hard_xml::XmlError;
-        let mut __self_status = None;
-        let mut __self_manifest = None;
-        let mut __self_urls = Vec::new();
+impl std::ops::DerefMut for Urls {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
-        reader.read_till_element_start("updatecheck")?;
+impl<'a> IntoIterator for &'a Urls {
+    type Item = &'a Url;
+    type IntoIter = std::slice::Iter<'a, Url>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
 
-        while let Some((k, v)) = reader.find_attribute()? {
-            if k == "status" {
-                __self_status = Some(v);
-            }
-        }
+impl<'a> hard_xml::XmlRead<'a> for Urls {
+    fn from_reader(reader: &mut XmlReader<'a>) -> XmlResult<Self> {
+        let mut urls = Vec::new();
+
+        reader.read_till_element_start("urls")?;
+        while (reader.find_attribute()?).is_some() {}
 
         if let Ok(Token::ElementEnd {
             end: ElementEnd::Empty,
             ..
-        }) = reader.next().ok_or(xml_missing_field("UpdateCheck", "manifest"))?
-        {
-            return Ok(UpdateCheck {
-                status: __self_status.ok_or(xml_missing_field("UpdateCheck", "status"))?,
-                urls: __self_urls,
-                manifest: __self_manifest.ok_or(xml_missing_field("UpdateCheck", "manifest"))?,
-            });
+        }) = reader.next().ok_or(XmlError::MissingField {
+            name: "urls".to_owned(),
+            field: "url".to_string(),
+        })? {
+            return Ok(Self(urls));
         }
 
-        while let Some(__tag) = reader.find_element_start(Some("updatecheck"))? {
-            match __tag {
-                "urls" => {
-                    reader.read_till_element_start("urls")?;
-
-                    while (reader.find_attribute()?).is_some() {}
-                    if let Ok(Token::ElementEnd {
-                        end: ElementEnd::Empty,
-                        ..
-                    }) = reader.next().ok_or(xml_missing_field("UpdateCheck", "manifest"))?
-                    {
-                        continue;
-                    }
-
-                    while let Some(__tag) = reader.find_element_start(Some("urls"))? {
-                        match __tag {
-                            "url" => {
-                                reader.read_till_element_start("url")?;
-                                while let Some((k, v)) = reader.find_attribute()? {
-                                    if k == "codebase" {
-                                        __self_urls.push(Url::from_str(&v).map_err(|e| XmlError::FromStr(e.into()))?)
-                                    }
-                                }
-
-                                reader.read_to_end("url")?;
-                            }
-
-                            tag => {
-                                reader.next();
-                                reader.read_to_end(tag)?;
-                            }
+        while let Some(tag) = reader.find_element_start(Some("urls"))? {
+            match tag {
+                "url" => {
+                    reader.read_till_element_start("url")?;
+                    while let Some((k, v)) = reader.find_attribute()? {
+                        if k == "codebase" {
+                            urls.push(Url::from_str(&v).map_err(|e| XmlError::FromStr(e.into()))?);
                         }
                     }
+                    reader.read_to_end("url")?;
                 }
-
-                "manifest" => {
-                    __self_manifest = Some(<Manifest<'_> as hard_xml::XmlRead>::from_reader(reader)?);
-                }
-
-                tag => {
+                other => {
                     reader.next();
-                    reader.read_to_end(tag)?;
+                    reader.read_to_end(other)?;
                 }
             }
         }
 
-        Ok(UpdateCheck {
-            status: __self_status.ok_or(xml_missing_field("UpdateCheck", "status"))?,
-            urls: __self_urls,
-            manifest: __self_manifest.ok_or(xml_missing_field("UpdateCheck", "manifest"))?,
-        })
+        Ok(Self(urls))
     }
+}
+
+#[derive(XmlRead, Debug)]
+#[xml(tag = "updatecheck")]
+pub struct UpdateCheck<'a> {
+    #[xml(attr = "status")]
+    pub status: Cow<'a, str>,
+
+    #[xml(child = "urls")]
+    pub urls: Urls,
+
+    #[xml(child = "manifest")]
+    pub manifest: Manifest<'a>,
 }
 
 #[derive(XmlRead, Debug)]
@@ -331,24 +227,17 @@ pub struct Response<'a> {
     pub apps: Vec<App<'a>>,
 }
 
-fn xml_missing_field(name: &str, field: &str) -> XmlError {
-    XmlError::MissingField {
-        name: name.to_owned(),
-        field: field.to_owned(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use hard_xml::XmlRead;
-    use crate::response::{App, Manifest, UpdateCheck};
+    use crate::response::{App, Manifest, UpdateCheck, Urls};
 
     const TEST_UUID: &str = "67e55044-10b1-426f-9247-bb680e5fe0c8";
 
     #[test]
     fn app_xml_read() {
         let xml = format!(
-            "<app appid=\"{{{}}}\" status=\"\"><updatecheck status=\"\"><manifest version=\"\"/></updatecheck></app>",
+            "<app appid=\"{{{}}}\" status=\"\"><updatecheck status=\"\"><manifest version=\"\"/><urls></urls></updatecheck></app>",
             TEST_UUID
         );
         let app = App::from_str(xml.as_str()).unwrap();
@@ -357,7 +246,7 @@ mod tests {
             status: Default::default(),
             update_check: UpdateCheck {
                 status: Default::default(),
-                urls: vec![],
+                urls: Urls::default(),
                 manifest: Manifest {
                     version: Default::default(),
                     packages: vec![],
