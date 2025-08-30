@@ -902,9 +902,7 @@ dependencies = [
 name = "omaha"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "ct-codecs",
- "digest",
  "hard-xml",
  "sha1",
  "sha2",
