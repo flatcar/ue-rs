@@ -19,7 +19,7 @@ const UPDATER_VERSION_STR: &str = "ue-rs-0.0.0";
 const OS_PLATFORM: &str = "CoreOS";
 const OS_VERSION: &str = "Chateau";
 
-const APP_ID: omaha::Uuid = omaha::uuid!("{e96281a6-d1af-4bde-9a0a-97b76e56dc57}");
+const APP_ID: uuid::Uuid = uuid::uuid!("{e96281a6-d1af-4bde-9a0a-97b76e56dc57}");
 
 pub struct Parameters<'a> {
     pub app_version: Cow<'a, str>,

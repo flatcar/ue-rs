@@ -12,6 +12,7 @@ pub enum Error {
     UnknownActionEvent(String),
     UnknownSuccessAction(String),
     ParseFileSize(ParseIntError),
+    ParseUuid(uuid::Error),
 }
 
 impl Display for Error {
@@ -28,6 +29,7 @@ impl Display for Error {
             Error::UnknownActionEvent(action) => write!(fmt, "unknown action event: {}", action),
             Error::UnknownSuccessAction(action) => write!(fmt, "unknown success action: {}", action),
             Error::ParseFileSize(err) => write!(fmt, "failed to parse file size: {}", err),
+            Error::ParseUuid(err) => write!(fmt, "failed to parse uuid: {}", err),
         }
     }
 }
