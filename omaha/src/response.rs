@@ -7,28 +7,8 @@ use crate::uuid::braced_uuid;
 use hard_xml::XmlRead;
 use url::Url;
 
-use crate::{FileSize, Sha1Digest, Sha256Digest, Error};
+use crate::{FileSize, Sha1Digest, Sha256Digest, Error, sha1_from_str, sha256_from_str};
 use crate::Error::{UnknownActionEvent, UnknownSuccessAction};
-
-mod sha256_from_str {
-    use crate::{Hasher, Sha256, Sha256Digest};
-    use crate::Result;
-
-    #[inline]
-    pub(crate) fn from_str(s: &str) -> Result<Sha256Digest> {
-        <Sha256 as Hasher>::try_from_hex_string(s)
-    }
-}
-
-mod sha1_from_str {
-    use crate::{Hasher, Sha1, Sha1Digest};
-    use crate::Result;
-
-    #[inline]
-    pub(crate) fn from_str(s: &str) -> Result<Sha1Digest> {
-        <Sha1 as Hasher>::try_from_hex_string(s)
-    }
-}
 
 #[derive(XmlRead, Debug)]
 #[xml(tag = "package")]
