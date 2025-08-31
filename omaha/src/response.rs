@@ -7,7 +7,7 @@ use crate::uuid::braced_uuid;
 
 use hard_xml::{XmlError, XmlRead, XmlReader, XmlResult};
 use hard_xml::xmlparser::{ElementEnd, Token};
-use crate::{FileSize, Sha1Digest, Sha256Digest, Error, sha1_from_str, sha256_from_str};
+use crate::{Sha1Digest, Sha256Digest, Error, sha1_from_str, sha256_from_str};
 use crate::Error::{UnknownActionEvent, UnknownSuccessAction};
 
 #[derive(XmlRead, Debug)]
@@ -146,7 +146,7 @@ pub struct Package<'a> {
     pub hash: Option<Sha1Digest>,
 
     #[xml(attr = "size")]
-    pub size: FileSize,
+    pub size: usize,
 
     #[xml(attr = "required")]
     pub required: bool,
@@ -244,7 +244,7 @@ mod tests {
     use url::Url;
     use hard_xml::XmlRead;
     use crate::response::{App, Package, Urls};
-    use crate::{FileSize, Hasher, Sha1, Sha256};
+    use crate::{Hasher, Sha1, Sha256};
 
     const TEST_UUID: &str = "67e55044-10b1-426f-9247-bb680e5fe0c8";
 
@@ -314,7 +314,7 @@ mod tests {
             Package {
                 name: Cow::Borrowed("name"),
                 hash: Some(Sha1::try_from_hex_string(SHA1_STR).unwrap()),
-                size: FileSize::from_bytes(1),
+                size: 1,
                 required: true,
                 hash_sha256: Some(Sha256::try_from_hex_string(SHA256_STR).unwrap()),
             },

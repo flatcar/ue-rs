@@ -1,9 +1,6 @@
 mod hash_types;
 pub use self::hash_types::*;
 
-mod types;
-pub use self::types::*;
-
 pub(crate) mod uuid;
 
 pub mod request;

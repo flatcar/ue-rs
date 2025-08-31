@@ -15,7 +15,7 @@ use anyhow::{Context, Result, bail, anyhow};
 use argh::FromArgs;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 use hard_xml::XmlRead;
-use omaha::{FileSize, Sha1Digest, Sha256Digest};
+use omaha::{Sha1Digest, Sha256Digest};
 use reqwest::blocking::Client;
 use reqwest::redirect::Policy;
 use url::Url;
@@ -26,7 +26,7 @@ use ue_rs::hash_on_disk;
 #[derive(Debug)]
 enum PackageStatus {
     ToDownload,
-    DownloadIncomplete(omaha::FileSize),
+    DownloadIncomplete(usize),
     DownloadFailed,
     BadChecksum,
     Unverified,
@@ -40,7 +40,7 @@ struct Package<'a> {
     name: Cow<'a, str>,
     hash_sha256: Option<Sha256Digest>,
     hash_sha1: Option<Sha1Digest>,
-    size: omaha::FileSize,
+    size: usize,
     status: PackageStatus,
 }
 
@@ -68,14 +68,12 @@ impl Package<'_> {
         })?;
 
         let size_on_disk = md.len() as usize;
-        let expected_size = self.size.bytes();
+        let expected_size = self.size;
 
         if size_on_disk < expected_size {
             info!("{}: have downloaded {}/{} bytes, will resume", path.display(), size_on_disk, expected_size);
 
-            self.status = PackageStatus::DownloadIncomplete(
-                omaha::FileSize::from_bytes(size_on_disk)
-            );
+            self.status = PackageStatus::DownloadIncomplete(size_on_disk);
             return Ok(());
         }
 
@@ -99,10 +97,10 @@ impl Package<'_> {
     }
 
     fn download(&mut self, into_dir: &Path, client: &Client) -> Result<()> {
-        // FIXME: use _range_start for completing downloads
+        // TODO: use _range_start for completing downloads
         let _range_start = match self.status {
-            PackageStatus::ToDownload => 0,
-            PackageStatus::DownloadIncomplete(s) => s.bytes(),
+            PackageStatus::ToDownload => 0usize,
+            PackageStatus::DownloadIncomplete(s) => s.into(),
             _ => return Ok(()),
         };
 
@@ -261,7 +259,7 @@ where
         name: Cow::Borrowed(path.file_name().unwrap_or(OsStr::new("fakepackage")).to_str().unwrap_or("fakepackage")),
         hash_sha256: Some(r.hash_sha256),
         hash_sha1: Some(r.hash_sha1),
-        size: FileSize::from_bytes(r.data.metadata().context(format!("failed to get metadata, path ({:?})", path.display()))?.len() as usize),
+        size: r.data.metadata().context(format!("failed to get metadata, path ({:?})", path.display()))?.len() as usize,
         url: input_url.into(),
         status: PackageStatus::Unverified,
     })
