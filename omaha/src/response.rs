@@ -12,6 +12,7 @@ use crate::Error::{UnknownActionEvent, UnknownSuccessAction};
 
 #[derive(XmlRead, Debug)]
 #[xml(tag = "package")]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Package<'a> {
     #[xml(attr = "name")]
     pub name: Cow<'a, str>,
@@ -234,9 +235,11 @@ pub struct Response<'a> {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
     use url::Url;
     use hard_xml::{XmlRead, XmlReader};
-    use crate::response::{App, Manifest, UpdateCheck, Urls};
+    use crate::response::{App, Manifest, Package, UpdateCheck, Urls};
+    use crate::{FileSize, Hasher, Sha1, Sha256};
 
     const TEST_UUID: &str = "67e55044-10b1-426f-9247-bb680e5fe0c8";
 
@@ -289,6 +292,36 @@ mod tests {
             Url::parse("https://example.net/2").unwrap(),
         ]);
         assert_eq!(urls, exp);
+    }
+
+    #[test]
+    fn package_xml_read_no_hashes() {
+        let xml = "<package name=\"name\" size=\"1\" required=\"true\"/>";
+        let package = Package::from_str(xml).unwrap();
+        let exp = Package {
+            name: Cow::Borrowed("name"),
+            hash: None,
+            size: FileSize::from_bytes(1),
+            required: true,
+            hash_sha256: None,
+        };
+        assert_eq!(package, exp);
+    }
+
+    #[test]
+    fn package_xml_read_hashes() {
+        let sha1_hex_string = "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d";
+        let sha256_hex_string = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+        let xml = format!("<package name=\"name\" hash=\"{sha1_hex_string}\" size=\"1\" required=\"true\" hash_sha256=\"{sha256_hex_string}\"/>");
+        let package = Package::from_str(&xml).unwrap();
+        let exp = Package {
+            name: Cow::Borrowed("name"),
+            hash: Some(Sha1::try_from_hex_string(sha1_hex_string).unwrap()),
+            size: FileSize::from_bytes(1),
+            required: true,
+            hash_sha256: Some(Sha256::try_from_hex_string(sha256_hex_string).unwrap()),
+        };
+        assert_eq!(package, exp);
     }
 
     #[test]
