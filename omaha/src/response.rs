@@ -110,11 +110,6 @@ pub struct Action {
     pub success_action: Option<SuccessAction>,
 }
 
-// for Manifest and UpdateCheck, we've customised the XmlRead implementation (using `cargo expand`
-// and inlining) so that we can flatten the `packages`, `actions`, and `urls` container tags.
-// this lets us do `update_check.urls[n]` instead of `update_check.urls.urls[n]`.
-// just nicer to use.
-
 #[derive(XmlRead, Debug)]
 #[xml(tag = "manifest")]
 pub struct Manifest<'a> {
