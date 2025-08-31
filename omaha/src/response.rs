@@ -267,38 +267,48 @@ mod tests {
 
     #[test]
     fn parse_single_url() {
+        const URL: &str = "https://example.net";
+
         test_xml_read(
-            "<urls><url codebase=\"https://example.net\"/></urls>",
-            Urls(vec![Url::parse("https://example.net").unwrap()]),
+            format!("<urls><url codebase=\"{URL}\"/></urls>").as_str(),
+            Urls(vec![Url::parse(URL).unwrap()]),
         )
     }
 
     #[test]
     fn ignore_invalid_url_attrs() {
+        const URL: &str = "https://example.net";
+
         test_xml_read("<urls><url bad-attr=\"\"/></urls>", Urls::default());
         test_xml_read(
-            "<urls><url codebase=\"https://example.org\" bad-attr=\"\"/></urls>",
-            Urls(vec![Url::parse("https://example.org").unwrap()]),
+            format!("<urls><url codebase=\"{URL}\" bad-attr=\"\"/></urls>").as_str(),
+            Urls(vec![Url::parse(URL).unwrap()]),
         );
     }
 
     #[test]
     fn parse_multiple_urls() {
+        const URL_1: &str = "https://example.net/1";
+        const URL_2: &str = "https://example.net/2";
+
         test_xml_read(
-            "<urls><url codebase=\"https://example.net/1\"/><url codebase=\"https://example.net/2\"/></urls>",
-            Urls(vec![
-                Url::parse("https://example.net/1").unwrap(),
-                Url::parse("https://example.net/2").unwrap(),
-            ]),
+            format!("<urls><url codebase=\"{URL_1}\"/><url codebase=\"{URL_2}\"/></urls>").as_str(),
+            Urls(vec![Url::parse(URL_1).unwrap(), Url::parse(URL_2).unwrap()]),
         );
     }
 
     #[test]
     fn package_xml_read_no_hashes() {
+        const NAME: &str = "name";
+        const SIZE: usize = 0;
+        const REQUIRED: bool = false;
+
         test_xml_read(
-            "<package name=\"name\" size=\"0\" required=\"false\"/>",
+            format!("<package name=\"{NAME}\" size=\"{SIZE}\" required=\"{REQUIRED}\"/>").as_str(),
             Package {
-                name: Cow::Borrowed("name"),
+                name: Cow::Borrowed(NAME),
+                size: SIZE,
+                required: REQUIRED,
                 ..Package::default()
             },
         );
@@ -306,16 +316,19 @@ mod tests {
 
     #[test]
     fn package_xml_read_hashes() {
+        const NAME: &str = "name";
         const SHA1_STR: &str = "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d";
+        const SIZE: usize = 1;
+        const REQUIRED: bool = false;
         const SHA256_STR: &str = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
 
         test_xml_read(
-            format!("<package name=\"name\" hash=\"{SHA1_STR}\" size=\"1\" required=\"true\" hash_sha256=\"{SHA256_STR}\"/>").as_str(),
+            format!("<package name=\"{NAME}\" hash=\"{SHA1_STR}\" size=\"{SIZE}\" required=\"{REQUIRED}\" hash_sha256=\"{SHA256_STR}\"/>",).as_str(),
             Package {
-                name: Cow::Borrowed("name"),
+                name: Cow::Borrowed(NAME),
                 hash: Some(Sha1::try_from_hex_string(SHA1_STR).unwrap()),
-                size: 1,
-                required: true,
+                size: SIZE,
+                required: REQUIRED,
                 hash_sha256: Some(Sha256::try_from_hex_string(SHA256_STR).unwrap()),
             },
         )
@@ -324,11 +337,7 @@ mod tests {
     #[test]
     fn app_xml_read() {
         test_xml_read(
-            format!(
-                "<app appid=\"{{{}}}\" status=\"\"><updatecheck status=\"\"><manifest version=\"\"/><urls></urls></updatecheck></app>",
-                TEST_UUID
-            )
-            .as_str(),
+            format!("<app appid=\"{{{TEST_UUID}}}\" status=\"\"><updatecheck status=\"\"><manifest version=\"\"/><urls></urls></updatecheck></app>",).as_str(),
             App {
                 id: uuid::uuid!(TEST_UUID),
                 ..App::default()
