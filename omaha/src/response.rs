@@ -11,119 +11,41 @@ use crate::{FileSize, Sha1Digest, Sha256Digest, Error, sha1_from_str, sha256_fro
 use crate::Error::{UnknownActionEvent, UnknownSuccessAction};
 
 #[derive(XmlRead, Debug)]
-#[xml(tag = "package")]
-#[cfg_attr(test, derive(PartialEq, Default))]
-pub struct Package<'a> {
-    #[xml(attr = "name")]
-    pub name: Cow<'a, str>,
+#[xml(tag = "response")]
+pub struct Response<'a> {
+    #[xml(attr = "protocol")]
+    pub protocol_version: Cow<'a, str>,
 
-    #[xml(attr = "hash", with = "sha1_from_str")]
-    pub hash: Option<Sha1Digest>,
-
-    #[xml(attr = "size")]
-    pub size: FileSize,
-
-    #[xml(attr = "required")]
-    pub required: bool,
-
-    #[xml(attr = "hash_sha256", with = "sha256_from_str")]
-    pub hash_sha256: Option<Sha256Digest>,
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum ActionEvent {
-    PreInstall,
-    Install,
-    PostInstall,
-    Update,
-}
-
-impl fmt::Display for ActionEvent {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            ActionEvent::PreInstall => f.write_str("preinstall"),
-            ActionEvent::Install => f.write_str("install"),
-            ActionEvent::PostInstall => f.write_str("postinstall"),
-            ActionEvent::Update => f.write_str("update"),
-        }
-    }
-}
-
-impl FromStr for ActionEvent {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "preinstall" => ActionEvent::PreInstall,
-            "install" => ActionEvent::Install,
-            "postinstall" => ActionEvent::PostInstall,
-            "update" => ActionEvent::Update,
-
-            _ => return Err(UnknownActionEvent(s.to_string())),
-        })
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum SuccessAction {
-    Default,
-    ExitSilently,
-    ExitSilentlyOnLaunchCommand,
-}
-
-impl fmt::Display for SuccessAction {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            SuccessAction::Default => f.write_str("default"),
-            SuccessAction::ExitSilently => f.write_str("exitsilently"),
-            SuccessAction::ExitSilentlyOnLaunchCommand => f.write_str("exitsilentlyonlaunchcmd"),
-        }
-    }
-}
-
-impl FromStr for SuccessAction {
-    type Err = Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "default" => SuccessAction::Default,
-            "exitsilently" => SuccessAction::ExitSilently,
-            "exitsilentlyonlaunchcmd" => SuccessAction::ExitSilentlyOnLaunchCommand,
-
-            _ => return Err(UnknownSuccessAction(s.to_string())),
-        })
-    }
+    #[xml(child = "app")]
+    pub apps: Vec<App<'a>>,
 }
 
 #[derive(XmlRead, Debug)]
-#[xml(tag = "action")]
-#[cfg_attr(test, derive(PartialEq))]
-pub struct Action {
-    #[xml(attr = "event")]
-    pub event: ActionEvent,
+#[xml(tag = "app")]
+#[cfg_attr(test, derive(PartialEq, Default))]
+pub struct App<'a> {
+    #[xml(attr = "appid", with = "braced_uuid")]
+    pub id: uuid::Uuid,
 
-    #[xml(attr = "sha256", with = "sha256_from_str")]
-    pub sha256: Sha256Digest,
+    #[xml(attr = "status")]
+    pub status: Cow<'a, str>,
 
-    #[xml(attr = "DisablePayloadBackoff")]
-    pub disable_payload_backoff: Option<bool>,
-
-    #[xml(attr = "successaction")]
-    pub success_action: Option<SuccessAction>,
+    #[xml(child = "updatecheck")]
+    pub update_check: UpdateCheck<'a>,
 }
 
 #[derive(XmlRead, Debug)]
-#[xml(tag = "manifest")]
+#[xml(tag = "updatecheck")]
 #[cfg_attr(test, derive(PartialEq, Default))]
-pub struct Manifest<'a> {
-    #[xml(attr = "version")]
-    pub version: Cow<'a, str>,
+pub struct UpdateCheck<'a> {
+    #[xml(attr = "status")]
+    pub status: Cow<'a, str>,
 
-    #[xml(child = "packages")]
-    pub packages: Vec<Package<'a>>,
+    #[xml(child = "urls")]
+    pub urls: Urls,
 
-    #[xml(child = "actions")]
-    pub actions: Vec<Action>,
+    #[xml(child = "manifest")]
+    pub manifest: Manifest<'a>,
 }
 
 /// A wrapper struct for `Vec<url::Url>`.
@@ -200,41 +122,119 @@ impl<'a> hard_xml::XmlRead<'a> for Urls {
 }
 
 #[derive(XmlRead, Debug)]
-#[xml(tag = "updatecheck")]
+#[xml(tag = "manifest")]
 #[cfg_attr(test, derive(PartialEq, Default))]
-pub struct UpdateCheck<'a> {
-    #[xml(attr = "status")]
-    pub status: Cow<'a, str>,
+pub struct Manifest<'a> {
+    #[xml(attr = "version")]
+    pub version: Cow<'a, str>,
 
-    #[xml(child = "urls")]
-    pub urls: Urls,
+    #[xml(child = "packages")]
+    pub packages: Vec<Package<'a>>,
 
-    #[xml(child = "manifest")]
-    pub manifest: Manifest<'a>,
+    #[xml(child = "actions")]
+    pub actions: Vec<Action>,
 }
 
 #[derive(XmlRead, Debug)]
-#[xml(tag = "app")]
+#[xml(tag = "package")]
 #[cfg_attr(test, derive(PartialEq, Default))]
-pub struct App<'a> {
-    #[xml(attr = "appid", with = "braced_uuid")]
-    pub id: uuid::Uuid,
+pub struct Package<'a> {
+    #[xml(attr = "name")]
+    pub name: Cow<'a, str>,
 
-    #[xml(attr = "status")]
-    pub status: Cow<'a, str>,
+    #[xml(attr = "hash", with = "sha1_from_str")]
+    pub hash: Option<Sha1Digest>,
 
-    #[xml(child = "updatecheck")]
-    pub update_check: UpdateCheck<'a>,
+    #[xml(attr = "size")]
+    pub size: FileSize,
+
+    #[xml(attr = "required")]
+    pub required: bool,
+
+    #[xml(attr = "hash_sha256", with = "sha256_from_str")]
+    pub hash_sha256: Option<Sha256Digest>,
 }
 
 #[derive(XmlRead, Debug)]
-#[xml(tag = "response")]
-pub struct Response<'a> {
-    #[xml(attr = "protocol")]
-    pub protocol_version: Cow<'a, str>,
+#[xml(tag = "action")]
+#[cfg_attr(test, derive(PartialEq))]
+pub struct Action {
+    #[xml(attr = "event")]
+    pub event: ActionEvent,
 
-    #[xml(child = "app")]
-    pub apps: Vec<App<'a>>,
+    #[xml(attr = "sha256", with = "sha256_from_str")]
+    pub sha256: Sha256Digest,
+
+    #[xml(attr = "DisablePayloadBackoff")]
+    pub disable_payload_backoff: Option<bool>,
+
+    #[xml(attr = "successaction")]
+    pub success_action: Option<SuccessAction>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ActionEvent {
+    PreInstall,
+    Install,
+    PostInstall,
+    Update,
+}
+
+impl fmt::Display for ActionEvent {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ActionEvent::PreInstall => f.write_str("preinstall"),
+            ActionEvent::Install => f.write_str("install"),
+            ActionEvent::PostInstall => f.write_str("postinstall"),
+            ActionEvent::Update => f.write_str("update"),
+        }
+    }
+}
+
+impl FromStr for ActionEvent {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "preinstall" => ActionEvent::PreInstall,
+            "install" => ActionEvent::Install,
+            "postinstall" => ActionEvent::PostInstall,
+            "update" => ActionEvent::Update,
+
+            _ => return Err(UnknownActionEvent(s.to_string())),
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum SuccessAction {
+    Default,
+    ExitSilently,
+    ExitSilentlyOnLaunchCommand,
+}
+
+impl fmt::Display for SuccessAction {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SuccessAction::Default => f.write_str("default"),
+            SuccessAction::ExitSilently => f.write_str("exitsilently"),
+            SuccessAction::ExitSilentlyOnLaunchCommand => f.write_str("exitsilentlyonlaunchcmd"),
+        }
+    }
+}
+
+impl FromStr for SuccessAction {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "default" => SuccessAction::Default,
+            "exitsilently" => SuccessAction::ExitSilently,
+            "exitsilentlyonlaunchcmd" => SuccessAction::ExitSilentlyOnLaunchCommand,
+
+            _ => return Err(UnknownSuccessAction(s.to_string())),
+        })
+    }
 }
 
 #[cfg(test)]
