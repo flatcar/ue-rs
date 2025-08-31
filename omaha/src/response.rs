@@ -97,6 +97,7 @@ impl FromStr for SuccessAction {
 
 #[derive(XmlRead, Debug)]
 #[xml(tag = "action")]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Action {
     #[xml(attr = "event")]
     pub event: ActionEvent,
@@ -113,6 +114,7 @@ pub struct Action {
 
 #[derive(XmlRead, Debug)]
 #[xml(tag = "manifest")]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Manifest<'a> {
     #[xml(attr = "version")]
     pub version: Cow<'a, str>,
@@ -199,6 +201,7 @@ impl<'a> hard_xml::XmlRead<'a> for Urls {
 
 #[derive(XmlRead, Debug)]
 #[xml(tag = "updatecheck")]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct UpdateCheck<'a> {
     #[xml(attr = "status")]
     pub status: Cow<'a, str>,
@@ -212,6 +215,7 @@ pub struct UpdateCheck<'a> {
 
 #[derive(XmlRead, Debug)]
 #[xml(tag = "app")]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct App<'a> {
     #[xml(attr = "appid", with = "braced_uuid")]
     pub id: uuid::Uuid,
@@ -236,114 +240,111 @@ pub struct Response<'a> {
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
+    use std::fmt::Debug;
     use url::Url;
-    use hard_xml::{XmlRead, XmlReader};
+    use hard_xml::XmlRead;
     use crate::response::{App, Manifest, Package, UpdateCheck, Urls};
     use crate::{FileSize, Hasher, Sha1, Sha256};
 
     const TEST_UUID: &str = "67e55044-10b1-426f-9247-bb680e5fe0c8";
 
-    fn parse_urls_from_str(s: &str) -> Urls {
-        Urls::from_reader(&mut XmlReader::new(s)).unwrap()
+    fn test_xml_read<'a, T>(s: &'a str, exp: T)
+    where
+        T: Debug + PartialEq + XmlRead<'a>,
+    {
+        assert_eq!(T::from_str(s).unwrap(), exp);
     }
 
     #[test]
     fn parse_empty_urls_self_closing() {
-        let xml = r#"<urls/>"#;
-        let urls = parse_urls_from_str(xml);
-        assert!(urls.is_empty());
+        test_xml_read("<urls/>", Urls::default());
     }
 
     #[test]
     fn parse_empty_urls() {
-        let xml = r#"<urls></urls>"#;
-        let urls = parse_urls_from_str(xml);
-        let exp = Urls(vec![]);
-        assert_eq!(urls, exp);
+        test_xml_read("<urls></urls>", Urls::default());
     }
 
     #[test]
     fn parse_single_url() {
-        let xml = "<urls><url codebase=\"https://example.net\"/></urls>";
-        let urls = parse_urls_from_str(xml);
-        let exp = Urls(vec![Url::parse("https://example.net").unwrap()]);
-        assert_eq!(urls, exp);
+        test_xml_read(
+            "<urls><url codebase=\"https://example.net\"/></urls>",
+            Urls(vec![Url::parse("https://example.net").unwrap()]),
+        )
     }
 
     #[test]
     fn ignore_invalid_url_attrs() {
-        let xml = "<urls><url bad-attr=\"\"/></urls>";
-        let urls = parse_urls_from_str(xml);
-        let exp = Urls::default();
-        assert_eq!(urls, exp);
-
-        let xml = "<urls><url codebase=\"https://example.org\" bad-attr=\"\"/></urls>";
-        let urls = parse_urls_from_str(xml);
-        let exp = Urls(vec![Url::parse("https://example.org").unwrap()]);
-        assert_eq!(urls, exp);
+        test_xml_read("<urls><url bad-attr=\"\"/></urls>", Urls::default());
+        test_xml_read(
+            "<urls><url codebase=\"https://example.org\" bad-attr=\"\"/></urls>",
+            Urls(vec![Url::parse("https://example.org").unwrap()]),
+        );
     }
 
     #[test]
     fn parse_multiple_urls() {
-        let xml = "<urls><url codebase=\"https://example.net/1\"/><url codebase=\"https://example.net/2\"/></urls>";
-        let urls = parse_urls_from_str(xml);
-        let exp = Urls(vec![
-            Url::parse("https://example.net/1").unwrap(),
-            Url::parse("https://example.net/2").unwrap(),
-        ]);
-        assert_eq!(urls, exp);
+        test_xml_read(
+            "<urls><url codebase=\"https://example.net/1\"/><url codebase=\"https://example.net/2\"/></urls>",
+            Urls(vec![
+                Url::parse("https://example.net/1").unwrap(),
+                Url::parse("https://example.net/2").unwrap(),
+            ]),
+        );
     }
 
     #[test]
     fn package_xml_read_no_hashes() {
-        let xml = "<package name=\"name\" size=\"1\" required=\"true\"/>";
-        let package = Package::from_str(xml).unwrap();
-        let exp = Package {
-            name: Cow::Borrowed("name"),
-            hash: None,
-            size: FileSize::from_bytes(1),
-            required: true,
-            hash_sha256: None,
-        };
-        assert_eq!(package, exp);
+        test_xml_read(
+            "<package name=\"name\" size=\"1\" required=\"true\"/>",
+            Package {
+                name: Cow::Borrowed("name"),
+                hash: None,
+                size: FileSize::from_bytes(1),
+                required: true,
+                hash_sha256: None,
+            },
+        );
     }
 
     #[test]
     fn package_xml_read_hashes() {
-        let sha1_hex_string = "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d";
-        let sha256_hex_string = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
-        let xml = format!("<package name=\"name\" hash=\"{sha1_hex_string}\" size=\"1\" required=\"true\" hash_sha256=\"{sha256_hex_string}\"/>");
-        let package = Package::from_str(&xml).unwrap();
-        let exp = Package {
-            name: Cow::Borrowed("name"),
-            hash: Some(Sha1::try_from_hex_string(sha1_hex_string).unwrap()),
-            size: FileSize::from_bytes(1),
-            required: true,
-            hash_sha256: Some(Sha256::try_from_hex_string(sha256_hex_string).unwrap()),
-        };
-        assert_eq!(package, exp);
+        const SHA1_STR: &str = "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d";
+        const SHA256_STR: &str = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+
+        test_xml_read(
+            format!("<package name=\"name\" hash=\"{SHA1_STR}\" size=\"1\" required=\"true\" hash_sha256=\"{SHA256_STR}\"/>").as_str(),
+            Package {
+                name: Cow::Borrowed("name"),
+                hash: Some(Sha1::try_from_hex_string(SHA1_STR).unwrap()),
+                size: FileSize::from_bytes(1),
+                required: true,
+                hash_sha256: Some(Sha256::try_from_hex_string(SHA256_STR).unwrap()),
+            },
+        )
     }
 
     #[test]
     fn app_xml_read() {
-        let xml = format!(
-            "<app appid=\"{{{}}}\" status=\"\"><updatecheck status=\"\"><manifest version=\"\"/><urls></urls></updatecheck></app>",
-            TEST_UUID
-        );
-        let app = App::from_str(xml.as_str()).unwrap();
-        let exp = App {
-            id: uuid::uuid!(TEST_UUID),
-            status: Default::default(),
-            update_check: UpdateCheck {
+        test_xml_read(
+            format!(
+                "<app appid=\"{{{}}}\" status=\"\"><updatecheck status=\"\"><manifest version=\"\"/><urls></urls></updatecheck></app>",
+                TEST_UUID
+            )
+            .as_str(),
+            App {
+                id: uuid::uuid!(TEST_UUID),
                 status: Default::default(),
-                urls: Urls::default(),
-                manifest: Manifest {
-                    version: Default::default(),
-                    packages: vec![],
-                    actions: vec![],
+                update_check: UpdateCheck {
+                    status: Default::default(),
+                    urls: Urls::default(),
+                    manifest: Manifest {
+                        version: Default::default(),
+                        packages: vec![],
+                        actions: vec![],
+                    },
                 },
             },
-        };
-        assert_eq!(app.id, exp.id);
+        );
     }
 }
