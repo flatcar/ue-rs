@@ -2,6 +2,7 @@ use std::str;
 
 #[derive(Debug, Copy, Clone)]
 #[repr(transparent)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct FileSize(usize);
 
 impl FileSize {
