@@ -128,6 +128,12 @@ pub struct Manifest<'a> {
     pub actions: Vec<Action>,
 }
 
+/// A wrapper struct for `Vec<url::Url>`.
+///
+/// Since we cannot derive or define `XmlRead` on `url::Url`, and need to use a
+/// `Vec<url::Url>` field in the `UpdateCheck` struct, it is easier to use a
+/// new type struct to implement `XmlRead` only for this, and let `UpdateCheck`
+/// make full use of deriving the required trait.
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(test, derive(Default))]
 pub struct Urls(Vec<Url>);
@@ -153,6 +159,12 @@ impl<'a> IntoIterator for &'a Urls {
     }
 }
 
+// TODO: this is the same behaviour as the old XmlRead implementation for the
+//       UpdateCheck struct, but is it definitely correct? This will allow <url>
+//       and <urls> elements with unknown attributes -- just ignoring them.
+//       Should this instead cause an XmlError here?
+/// Custom implementation for the `hard_xml::XmlRead` trait to extract `<url>`
+/// elements with a `codebase=""` attribute within and enclosing `<urls>`.
 impl<'a> hard_xml::XmlRead<'a> for Urls {
     fn from_reader(reader: &mut XmlReader<'a>) -> XmlResult<Self> {
         const URLS_OUTER_TAG: &str = "urls";
