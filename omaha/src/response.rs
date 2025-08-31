@@ -12,7 +12,7 @@ use crate::Error::{UnknownActionEvent, UnknownSuccessAction};
 
 #[derive(XmlRead, Debug)]
 #[xml(tag = "package")]
-#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(test, derive(PartialEq, Default))]
 pub struct Package<'a> {
     #[xml(attr = "name")]
     pub name: Cow<'a, str>,
@@ -114,7 +114,7 @@ pub struct Action {
 
 #[derive(XmlRead, Debug)]
 #[xml(tag = "manifest")]
-#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(test, derive(PartialEq, Default))]
 pub struct Manifest<'a> {
     #[xml(attr = "version")]
     pub version: Cow<'a, str>,
@@ -201,7 +201,7 @@ impl<'a> hard_xml::XmlRead<'a> for Urls {
 
 #[derive(XmlRead, Debug)]
 #[xml(tag = "updatecheck")]
-#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(test, derive(PartialEq, Default))]
 pub struct UpdateCheck<'a> {
     #[xml(attr = "status")]
     pub status: Cow<'a, str>,
@@ -215,7 +215,7 @@ pub struct UpdateCheck<'a> {
 
 #[derive(XmlRead, Debug)]
 #[xml(tag = "app")]
-#[cfg_attr(test, derive(PartialEq))]
+#[cfg_attr(test, derive(PartialEq, Default))]
 pub struct App<'a> {
     #[xml(attr = "appid", with = "braced_uuid")]
     pub id: uuid::Uuid,
@@ -243,7 +243,7 @@ mod tests {
     use std::fmt::Debug;
     use url::Url;
     use hard_xml::XmlRead;
-    use crate::response::{App, Manifest, Package, UpdateCheck, Urls};
+    use crate::response::{App, Package, Urls};
     use crate::{FileSize, Hasher, Sha1, Sha256};
 
     const TEST_UUID: &str = "67e55044-10b1-426f-9247-bb680e5fe0c8";
@@ -296,13 +296,10 @@ mod tests {
     #[test]
     fn package_xml_read_no_hashes() {
         test_xml_read(
-            "<package name=\"name\" size=\"1\" required=\"true\"/>",
+            "<package name=\"name\" size=\"0\" required=\"false\"/>",
             Package {
                 name: Cow::Borrowed("name"),
-                hash: None,
-                size: FileSize::from_bytes(1),
-                required: true,
-                hash_sha256: None,
+                ..Package::default()
             },
         );
     }
@@ -334,16 +331,7 @@ mod tests {
             .as_str(),
             App {
                 id: uuid::uuid!(TEST_UUID),
-                status: Default::default(),
-                update_check: UpdateCheck {
-                    status: Default::default(),
-                    urls: Urls::default(),
-                    manifest: Manifest {
-                        version: Default::default(),
-                        packages: vec![],
-                        actions: vec![],
-                    },
-                },
+                ..App::default()
             },
         );
     }
