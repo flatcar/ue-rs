@@ -155,37 +155,34 @@ impl<'a> IntoIterator for &'a Urls {
 
 impl<'a> hard_xml::XmlRead<'a> for Urls {
     fn from_reader(reader: &mut XmlReader<'a>) -> XmlResult<Self> {
+        const URLS_OUTER_TAG: &str = "urls";
+        const URL_INNER_TAG: &str = "url";
+
         let mut urls = Vec::new();
 
-        reader.read_till_element_start("urls")?;
+        reader.read_till_element_start(URLS_OUTER_TAG)?;
         while (reader.find_attribute()?).is_some() {}
 
         if let Ok(Token::ElementEnd {
             end: ElementEnd::Empty,
             ..
         }) = reader.next().ok_or(XmlError::MissingField {
-            name: "urls".to_owned(),
-            field: "url".to_string(),
+            name: URLS_OUTER_TAG.to_owned(),
+            field: URL_INNER_TAG.to_string(),
         })? {
             return Ok(Self(urls));
         }
 
-        while let Some(tag) = reader.find_element_start(Some("urls"))? {
-            match tag {
-                "url" => {
-                    reader.read_till_element_start("url")?;
-                    while let Some((k, v)) = reader.find_attribute()? {
-                        if k == "codebase" {
-                            urls.push(Url::from_str(&v).map_err(|e| XmlError::FromStr(e.into()))?);
-                        }
-                    }
-                    reader.read_to_end("url")?;
+        while let Some(tag) = reader.find_element_start(Some(URLS_OUTER_TAG))? {
+            if tag == URL_INNER_TAG {
+                reader.read_till_element_start(URL_INNER_TAG)?;
+                while let Some(("codebase", v)) = reader.find_attribute()? {
+                    urls.push(Url::from_str(&v).map_err(|e| XmlError::FromStr(e.into()))?);
                 }
-                other => {
-                    reader.next();
-                    reader.read_to_end(other)?;
-                }
+            } else {
+                reader.next();
             }
+            reader.read_to_end(tag)?;
         }
 
         Ok(Self(urls))
