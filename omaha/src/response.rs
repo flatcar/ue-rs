@@ -1,10 +1,11 @@
 use std::borrow::Cow;
 use std::str::FromStr;
 use std::fmt;
+use std::fmt::Debug;
+use url::Url;
 use crate::uuid::braced_uuid;
 
-use hard_xml::{XmlError, XmlRead, XmlReader, XmlResult, XmlWrite};
-use url::Url;
+use hard_xml::{XmlError, XmlRead, XmlReader, XmlResult};
 use hard_xml::xmlparser::{ElementEnd, Token};
 use crate::{FileSize, Sha1Digest, Sha256Digest, Error, sha1_from_str, sha256_from_str};
 use crate::Error::{UnknownActionEvent, UnknownSuccessAction};
@@ -127,7 +128,7 @@ pub struct Manifest<'a> {
     pub actions: Vec<Action>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(test, derive(Default))]
 pub struct Urls(Vec<Url>);
 
@@ -229,10 +230,62 @@ pub struct Response<'a> {
 
 #[cfg(test)]
 mod tests {
-    use hard_xml::XmlRead;
+    use url::Url;
+    use hard_xml::{XmlRead, XmlReader};
     use crate::response::{App, Manifest, UpdateCheck, Urls};
 
     const TEST_UUID: &str = "67e55044-10b1-426f-9247-bb680e5fe0c8";
+
+    fn parse_urls_from_str(s: &str) -> Urls {
+        Urls::from_reader(&mut XmlReader::new(s)).unwrap()
+    }
+
+    #[test]
+    fn parse_empty_urls_self_closing() {
+        let xml = r#"<urls/>"#;
+        let urls = parse_urls_from_str(xml);
+        assert!(urls.is_empty());
+    }
+
+    #[test]
+    fn parse_empty_urls() {
+        let xml = r#"<urls></urls>"#;
+        let urls = parse_urls_from_str(xml);
+        let exp = Urls(vec![]);
+        assert_eq!(urls, exp);
+    }
+
+    #[test]
+    fn parse_single_url() {
+        let xml = "<urls><url codebase=\"https://example.net\"/></urls>";
+        let urls = parse_urls_from_str(xml);
+        let exp = Urls(vec![Url::parse("https://example.net").unwrap()]);
+        assert_eq!(urls, exp);
+    }
+
+    #[test]
+    fn ignore_invalid_url_attrs() {
+        let xml = "<urls><url bad-attr=\"\"/></urls>";
+        let urls = parse_urls_from_str(xml);
+        let exp = Urls::default();
+        assert_eq!(urls, exp);
+
+        let xml = "<urls><url codebase=\"https://example.org\" bad-attr=\"\"/></urls>";
+        let urls = parse_urls_from_str(xml);
+        let exp = Urls(vec![Url::parse("https://example.org").unwrap()]);
+        assert_eq!(urls, exp);
+    }
+
+    #[test]
+    fn parse_multiple_urls() {
+        let xml = "<urls><url codebase=\"https://example.net/1\"/><url codebase=\"https://example.net/2\"/></urls>";
+        let urls = parse_urls_from_str(xml);
+        let exp = Urls(vec![
+            Url::parse("https://example.net/1").unwrap(),
+            Url::parse("https://example.net/2").unwrap(),
+        ]);
+        assert_eq!(urls, exp);
+    }
 
     #[test]
     fn app_xml_read() {
