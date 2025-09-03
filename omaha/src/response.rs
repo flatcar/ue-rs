@@ -84,7 +84,7 @@ impl<'a> IntoIterator for &'a Urls {
 //       and <urls> elements with unknown attributes -- just ignoring them.
 //       Should this instead cause an XmlError here?
 /// Custom implementation for the `hard_xml::XmlRead` trait to extract `<url>`
-/// elements with a `codebase=""` attribute within and enclosing `<urls>`.
+/// elements with a `codebase=""` attribute within an enclosing `<urls>`.
 impl<'a> hard_xml::XmlRead<'a> for Urls {
     fn from_reader(reader: &mut XmlReader<'a>) -> XmlResult<Self> {
         const URLS_OUTER_TAG: &str = "urls";
