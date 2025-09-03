@@ -223,12 +223,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ct-codecs"
-version = "1.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b916ba8ce9e4182696896f015e8a5ae6081b305f74690baa8465e35f5a142ea4"
-
-[[package]]
 name = "der"
 version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -902,7 +896,6 @@ dependencies = [
 name = "omaha"
 version = "0.1.0"
 dependencies = [
- "ct-codecs",
  "hard-xml",
  "sha1",
  "sha2",
