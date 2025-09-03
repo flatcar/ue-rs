@@ -5,6 +5,31 @@ use hard_xml::XmlWrite;
 
 use crate::uuid::braced_uuid;
 
+#[derive(XmlWrite)]
+#[xml(tag = "request")]
+pub struct Request<'a> {
+    #[xml(attr = "protocol")]
+    pub protocol_version: Cow<'a, str>,
+
+    #[xml(attr = "version")]
+    pub version: Cow<'a, str>,
+
+    #[xml(attr = "updaterversion")]
+    pub updater_version: Cow<'a, str>,
+
+    #[xml(attr = "installsource")]
+    pub install_source: InstallSource,
+
+    #[xml(attr = "ismachine")]
+    pub is_machine: usize,
+
+    #[xml(child = "os")]
+    pub os: Os<'a>,
+
+    #[xml(child = "app")]
+    pub apps: Vec<App<'a>>,
+}
+
 #[allow(dead_code)]
 #[derive(Debug)]
 pub enum InstallSource {
@@ -35,10 +60,6 @@ pub struct Os<'a> {
 }
 
 #[derive(XmlWrite)]
-#[xml(tag = "updatecheck")]
-pub struct AppUpdateCheck;
-
-#[derive(XmlWrite)]
 #[xml(tag = "app")]
 pub struct App<'a> {
     #[xml(attr = "appid", with = "braced_uuid")]
@@ -67,29 +88,8 @@ pub struct App<'a> {
 }
 
 #[derive(XmlWrite)]
-#[xml(tag = "request")]
-pub struct Request<'a> {
-    #[xml(attr = "protocol")]
-    pub protocol_version: Cow<'a, str>,
-
-    #[xml(attr = "version")]
-    pub version: Cow<'a, str>,
-
-    #[xml(attr = "updaterversion")]
-    pub updater_version: Cow<'a, str>,
-
-    #[xml(attr = "installsource")]
-    pub install_source: InstallSource,
-
-    #[xml(attr = "ismachine")]
-    pub is_machine: usize,
-
-    #[xml(child = "os")]
-    pub os: Os<'a>,
-
-    #[xml(child = "app")]
-    pub apps: Vec<App<'a>>,
-}
+#[xml(tag = "updatecheck")]
+pub struct AppUpdateCheck;
 
 #[cfg(test)]
 mod tests {
