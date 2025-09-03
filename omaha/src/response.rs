@@ -1,14 +1,14 @@
 use std::borrow::Cow;
+use std::fmt::{self, Debug};
 use std::str::FromStr;
-use std::fmt;
-use std::fmt::Debug;
-use url::Url;
-use crate::uuid::braced_uuid;
 
 use hard_xml::{XmlError, XmlRead, XmlReader, XmlResult};
 use hard_xml::xmlparser::{ElementEnd, Token};
-use crate::{Sha1Digest, Sha256Digest, Error, sha1_from_str, sha256_from_str};
+use url::Url;
+
 use crate::Error::{UnknownActionEvent, UnknownSuccessAction};
+use crate::uuid::braced_uuid;
+use crate::{Sha1Digest, Sha256Digest, Error, sha1_from_str, sha256_from_str};
 
 #[derive(XmlRead, Debug)]
 #[xml(tag = "response")]
