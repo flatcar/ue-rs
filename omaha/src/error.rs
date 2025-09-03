@@ -3,7 +3,6 @@ use std::num::ParseIntError;
 
 #[derive(Debug)]
 pub enum Error {
-    Decode(ct_codecs::Error),
     TryFromHex(ParseIntError),
     InvalidDigestLength {
         expected: usize,
@@ -19,7 +18,6 @@ pub enum Error {
 impl Display for Error {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::Decode(err) => write!(fmt, "failed to decode: {}", err),
             Error::TryFromHex(err) => write!(fmt, "failed to convert from hex: {}", err),
             Error::InvalidDigestLength {
                 expected,
