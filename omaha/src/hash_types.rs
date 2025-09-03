@@ -1,5 +1,7 @@
 use std::str;
+
 use sha2::Digest;
+
 use crate::error::Error;
 use crate::result::Result;
 
