@@ -55,7 +55,7 @@ impl Hasher for Sha1 {
     }
 
     fn update(&mut self, data: &[u8]) {
-        self.0.update(data)
+        self.0.update(data);
     }
 
     fn finalize(self) -> Self::Output {
@@ -88,7 +88,7 @@ impl Hasher for Sha256 {
     }
 
     fn update(&mut self, data: &[u8]) {
-        self.0.update(data)
+        self.0.update(data);
     }
 
     fn finalize(self) -> Self::Output {

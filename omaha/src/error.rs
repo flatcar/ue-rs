@@ -18,18 +18,18 @@ pub enum Error {
 impl Display for Error {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::TryFromHex(err) => write!(fmt, "failed to convert from hex: {}", err),
+            Error::TryFromHex(err) => write!(fmt, "failed to convert from hex: {err}"),
             Error::InvalidDigestLength {
                 expected,
                 actual,
             } => {
-                write!(fmt, "invalid digest length: expected {}, actual {}", expected, actual)
+                write!(fmt, "invalid digest length: expected {expected}, actual {actual}")
             }
-            Error::UnknownActionEvent(action) => write!(fmt, "unknown action event: {}", action),
-            Error::UnknownSuccessAction(action) => write!(fmt, "unknown success action: {}", action),
-            Error::ParseFileSize(err) => write!(fmt, "failed to parse file size: {}", err),
-            Error::ParseUuid(err) => write!(fmt, "failed to parse uuid: {}", err),
-            Error::ParseUrl(err) => write!(fmt, "failed to parse url: {}", err),
+            Error::UnknownActionEvent(action) => write!(fmt, "unknown action event: {action}"),
+            Error::UnknownSuccessAction(action) => write!(fmt, "unknown success action: {action}"),
+            Error::ParseFileSize(err) => write!(fmt, "failed to parse file size: {err}"),
+            Error::ParseUuid(err) => write!(fmt, "failed to parse uuid: {err}"),
+            Error::ParseUrl(err) => write!(fmt, "failed to parse url: {err}"),
         }
     }
 }
