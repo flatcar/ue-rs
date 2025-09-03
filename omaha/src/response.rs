@@ -93,7 +93,7 @@ impl<'a> hard_xml::XmlRead<'a> for Urls {
         let mut urls = Vec::new();
 
         reader.read_till_element_start(URLS_OUTER_TAG)?;
-        while (reader.find_attribute()?).is_some() {}
+        while reader.find_attribute()?.is_some() {}
 
         if let Ok(Token::ElementEnd {
             end: ElementEnd::Empty,
