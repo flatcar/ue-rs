@@ -1,3 +1,5 @@
+pub mod package;
+
 use anyhow::{Context, Result, bail};
 use std::io::{BufReader, Read};
 use std::fs::File;
