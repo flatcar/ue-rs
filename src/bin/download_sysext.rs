@@ -1,107 +1,12 @@
 use std::error::Error;
-use std::borrow::Cow;
-use std::ffi::OsStr;
-use std::fs::File;
-use std::fs;
-use std::io;
-use std::path::Path;
-use std::str::FromStr;
-use std::time::Duration;
 
-#[macro_use]
 extern crate log;
 
-use anyhow::{Context, Result, anyhow};
+use anyhow::Result;
 use argh::FromArgs;
 use globset::{Glob, GlobSet, GlobSetBuilder};
-use hard_xml::XmlRead;
-use omaha::FileSize;
-use reqwest::blocking::Client;
-use reqwest::redirect::Policy;
-use url::Url;
 
-use ue_rs::{Package, PackageStatus};
-
-#[rustfmt::skip]
-fn get_pkgs_to_download<'a>(resp: &'a omaha::Response, glob_set: &GlobSet)
-        -> Result<Vec<Package<'a>>> {
-    let mut to_download: Vec<_> = Vec::new();
-
-    for app in &resp.apps {
-        let manifest = &app.update_check.manifest;
-
-        for pkg in &manifest.packages {
-            if !glob_set.is_match(&*pkg.name) {
-                info!("package `{}` doesn't match glob pattern, skipping", pkg.name);
-                continue;
-            }
-
-            let hash_sha256 = pkg.hash_sha256.as_ref();
-            let hash_sha1 = pkg.hash.as_ref();
-
-            // TODO: multiple URLs per package
-            //       not sure if nebraska sends us more than one right now but i suppose this is
-            //       for mirrors?
-            let Some(Ok(url)) = app.update_check.urls.first()
-                .map(|u| u.join(&pkg.name)) else {
-                warn!("can't get url for package `{}`, skipping", pkg.name);
-                continue;
-            };
-
-            if hash_sha256.is_none() && hash_sha1.is_none() {
-              warn!("package `{}` doesn't have a valid SHA256 or SHA1 hash, skipping", pkg.name);
-              continue;
-            }
-                    to_download.push(Package {
-                        url,
-                        name: Cow::Borrowed(&pkg.name),
-                        hash_sha256: hash_sha256.cloned(),
-                        hash_sha1: hash_sha1.cloned(),
-                        size: pkg.size,
-                        status: PackageStatus::ToDownload
-                    });
-        }
-    }
-
-    Ok(to_download)
-}
-
-// Read data from remote URL into File
-fn fetch_url_to_file<'a, U>(path: &'a Path, input_url: U, client: &'a Client) -> Result<Package<'a>>
-where
-    U: reqwest::IntoUrl + From<U> + std::clone::Clone + std::fmt::Debug,
-    Url: From<U>,
-{
-    let r = ue_rs::download_and_hash(client, input_url.clone(), path, None, None).context(format!("unable to download data(url {input_url:?})"))?;
-
-    Ok(Package {
-        name: Cow::Borrowed(path.file_name().unwrap_or(OsStr::new("fakepackage")).to_str().unwrap_or("fakepackage")),
-        hash_sha256: Some(r.hash_sha256),
-        hash_sha1: Some(r.hash_sha1),
-        size: FileSize::from_bytes(r.data.metadata().context(format!("failed to get metadata, path ({:?})", path.display()))?.len() as usize),
-        url: input_url.into(),
-        status: PackageStatus::Unverified,
-    })
-}
-
-fn do_download_verify(pkg: &mut Package<'_>, output_filename: Option<String>, output_dir: &Path, unverified_dir: &Path, pubkey_file: &str, client: &Client) -> Result<()> {
-    pkg.check_download(unverified_dir)?;
-
-    pkg.download(unverified_dir, client).context(format!("unable to download \"{:?}\"", pkg.name))?;
-
-    // Unverified payload is stored in e.g. "output_dir/.unverified/oem.gz".
-    // Verified payload is stored in e.g. "output_dir/oem.raw".
-    let pkg_unverified = unverified_dir.join(&*pkg.name);
-    let pkg_verified = output_dir.join(output_filename.as_ref().map(OsStr::new).unwrap_or(pkg_unverified.with_extension("raw").file_name().unwrap_or_default()));
-
-    let datablobspath = pkg.verify_signature_on_disk(&pkg_unverified, pubkey_file).context(format!("unable to verify signature \"{}\"", pkg.name))?;
-
-    // write extracted data into the final data.
-    debug!("data blobs written into file {pkg_verified:?}");
-    fs::rename(datablobspath, pkg_verified)?;
-
-    Ok(())
-}
+use ue_rs::DownloadVerify;
 
 #[derive(FromArgs, Debug)]
 /// Parse an update-engine Omaha XML response to extract sysext images, then download and verify
@@ -149,9 +54,6 @@ impl Args {
     }
 }
 
-const HTTP_CONN_TIMEOUT: u64 = 20;
-const DOWNLOAD_TIMEOUT: u64 = 3600;
-
 fn main() -> Result<(), Box<dyn Error>> {
     env_logger::init();
 
@@ -164,102 +66,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let glob_set = args.image_match_glob_set()?;
 
-    let output_dir = Path::new(&*args.output_dir);
-    if !output_dir.try_exists()? {
-        return Err(format!("output directory `{}` does not exist", args.output_dir).into());
-    }
-
-    let unverified_dir = output_dir.join(".unverified");
-    let temp_dir = output_dir.join(".tmp");
-    fs::create_dir_all(&unverified_dir)?;
-    fs::create_dir_all(&temp_dir)?;
-
-    // The default policy of reqwest Client supports max 10 attempts on HTTP redirect.
-    let client = Client::builder()
-        .tcp_keepalive(Duration::from_secs(HTTP_CONN_TIMEOUT))
-        .connect_timeout(Duration::from_secs(HTTP_CONN_TIMEOUT))
-        .timeout(Duration::from_secs(DOWNLOAD_TIMEOUT))
-        .redirect(Policy::default())
-        .build()?;
-
-    // If input_xml exists, simply read it.
-    // If not, try to read from payload_url.
-    let res_local = match args.input_xml {
-        Some(name) => {
-            if name == "-" {
-                Some(io::read_to_string(io::stdin())?)
-            } else {
-                let file = File::open(name)?;
-                Some(io::read_to_string(file)?)
-            }
-        }
-        None => None,
-    };
-
-    match (&res_local, args.payload_url) {
-        (Some(_), Some(_)) => {
-            return Err("Only one of the options can be given, --input-xml or --payload-url.".into());
-        }
-        (Some(res), None) => res,
-        (None, Some(url)) => {
-            let u = Url::parse(&url)?;
-            let fname = u.path_segments().ok_or(anyhow!("failed to get path segments, url ({:?})", u))?.next_back().ok_or(anyhow!("failed to get path segments, url ({:?})", u))?;
-            let mut pkg_fake: Package;
-
-            let temp_payload_path = unverified_dir.join(fname);
-            pkg_fake = fetch_url_to_file(
-                &temp_payload_path,
-                Url::from_str(url.as_str()).context(anyhow!("failed to convert into url ({:?})", url))?,
-                &client,
-            )?;
-            do_download_verify(
-                &mut pkg_fake,
-                args.target_filename.clone(),
-                output_dir,
-                unverified_dir.as_path(),
-                args.pubkey_file.as_str(),
-                &client,
-            )?;
-
-            // verify only a fake package, early exit and skip the rest.
-            return Ok(());
-        }
-        (None, None) => return Err("Either --input-xml or --payload-url must be given.".into()),
-    };
-
-    let response_text = res_local.ok_or(anyhow!("failed to get response text"))?;
-    debug!("response_text: {response_text:?}");
-
-    ////
-    // parse response
-    ////
-    let resp = omaha::Response::from_str(&response_text)?;
-
-    let mut pkgs_to_dl = get_pkgs_to_download(&resp, &glob_set)?;
-
-    debug!("pkgs:\n\t{pkgs_to_dl:#?}");
-    debug!("");
-
-    ////
-    // download
-    ////
-
-    for pkg in pkgs_to_dl.iter_mut() {
-        do_download_verify(
-            pkg,
-            args.target_filename.clone(),
-            output_dir,
-            unverified_dir.as_path(),
-            args.pubkey_file.as_str(),
-            &client,
-        )?;
-        if args.take_first_match {
-            break;
-        }
-    }
-
-    // clean up data
-    fs::remove_dir_all(temp_dir)?;
+    DownloadVerify::new(
+        args.output_dir,
+        args.target_filename,
+        args.input_xml,
+        args.pubkey_file,
+        args.payload_url,
+        args.take_first_match,
+        glob_set,
+    )
+    .run()?;
 
     Ok(())
 }

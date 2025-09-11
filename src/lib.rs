@@ -1,5 +1,6 @@
 mod download;
 pub use download::DownloadResult;
+pub use download::DownloadVerify;
 pub use download::download_and_hash;
 pub use download::hash_on_disk;
 pub use download::package::Package;
