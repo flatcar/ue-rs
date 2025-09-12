@@ -8,19 +8,18 @@ use url::Url;
 use reqwest::StatusCode;
 use reqwest::blocking::Client;
 
-use sha2::digest::DynDigest;
+use omaha::{Sha1Digest, Sha256Digest};
 
 const MAX_DOWNLOAD_RETRY: u32 = 20;
 
 pub struct DownloadResult {
-    pub hash_sha256: omaha::Hash<omaha::Sha256>,
-    pub hash_sha1: omaha::Hash<omaha::Sha1>,
+    pub hash_sha256: Sha256Digest,
+    pub hash_sha1: Sha1Digest,
     pub data: File,
 }
 
-pub fn hash_on_disk<T: omaha::HashAlgo>(path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<T>> {
+pub fn hash_on_disk<T: omaha::Hasher>(path: &Path, maxlen: Option<usize>) -> Result<T::Output> {
     let file = File::open(path).context(format!("failed to open path({:?})", path.display()))?;
-    let mut hasher = T::hasher();
 
     let filelen = file.metadata().context(format!("failed to get metadata of {:?}", path.display()))?.len() as usize;
 
@@ -34,6 +33,8 @@ pub fn hash_on_disk<T: omaha::HashAlgo>(path: &Path, maxlen: Option<usize>) -> R
         }
         None => filelen,
     };
+
+    let mut hasher = T::new();
 
     const CHUNKLEN: usize = 10485760; // 10M
 
@@ -56,10 +57,10 @@ pub fn hash_on_disk<T: omaha::HashAlgo>(path: &Path, maxlen: Option<usize>) -> R
         hasher.update(&databuf);
     }
 
-    Ok(omaha::Hash::from_bytes(Box::new(hasher).finalize()))
+    Ok(hasher.finalize())
 }
 
-fn do_download_and_hash<U>(client: &Client, url: U, path: &Path, expected_sha256: Option<omaha::Hash<omaha::Sha256>>, expected_sha1: Option<omaha::Hash<omaha::Sha1>>) -> Result<DownloadResult>
+fn do_download_and_hash<U>(client: &Client, url: U, path: &Path, expected_sha256: Option<Sha256Digest>, expected_sha1: Option<Sha1Digest>) -> Result<DownloadResult>
 where
     U: reqwest::IntoUrl + Clone,
     Url: From<U>,
@@ -98,10 +99,10 @@ where
     let calculated_sha1 = hash_on_disk::<omaha::Sha1>(path, None)?;
 
     debug!("    expected sha256:   {expected_sha256:?}");
-    debug!("    calculated sha256: {calculated_sha256}");
+    debug!("    calculated sha256: {calculated_sha256:?}");
     debug!("    sha256 match?      {}", expected_sha256 == Some(calculated_sha256.clone()));
     debug!("    expected sha1:   {expected_sha1:?}");
-    debug!("    calculated sha1: {calculated_sha1}");
+    debug!("    calculated sha1: {calculated_sha1:?}");
     debug!("    sha1 match?      {}", expected_sha1 == Some(calculated_sha1.clone()));
 
     if expected_sha256.is_some() && expected_sha256 != Some(calculated_sha256.clone()) {
@@ -118,7 +119,7 @@ where
     })
 }
 
-pub fn download_and_hash<U>(client: &Client, url: U, path: &Path, expected_sha256: Option<omaha::Hash<omaha::Sha256>>, expected_sha1: Option<omaha::Hash<omaha::Sha1>>) -> Result<DownloadResult>
+pub fn download_and_hash<U>(client: &Client, url: U, path: &Path, expected_sha256: Option<Sha256Digest>, expected_sha1: Option<Sha1Digest>) -> Result<DownloadResult>
 where
     U: reqwest::IntoUrl + Clone,
     Url: From<U>,
