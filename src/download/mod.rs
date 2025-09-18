@@ -13,12 +13,11 @@ use anyhow::{Context, Result, anyhow, bail};
 use globset::GlobSet;
 use hard_xml::XmlRead;
 use log::{debug, info, warn};
-use omaha::FileSize;
 use reqwest::{StatusCode, blocking::Client, redirect::Policy};
-use sha2::digest::DynDigest;
 use url::Url;
 
 use crate::{Package, PackageStatus};
+use omaha::{Sha1Digest, Sha256Digest};
 
 const DOWNLOAD_TIMEOUT: u64 = 3600;
 const HTTP_CONN_TIMEOUT: u64 = 20;
@@ -31,14 +30,13 @@ const UNVERFIED_SUFFIX: &str = ".unverified";
 const TMP_SUFFIX: &str = ".tmp";
 
 pub struct DownloadResult {
-    pub hash_sha256: omaha::Hash<omaha::Sha256>,
-    pub hash_sha1: omaha::Hash<omaha::Sha1>,
+    pub hash_sha256: Sha256Digest,
+    pub hash_sha1: Sha1Digest,
     pub data: File,
 }
 
-pub fn hash_on_disk<T: omaha::HashAlgo>(path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<T>> {
+pub fn hash_on_disk<T: omaha::Hasher>(path: &Path, maxlen: Option<usize>) -> Result<T::Output> {
     let file = File::open(path).context(format!("File::open({:?})", path))?;
-    let mut hasher = T::hasher();
 
     let filelen = file.metadata().context(format!("failed to get metadata of {:?}", path))?.len() as usize;
 
@@ -52,6 +50,8 @@ pub fn hash_on_disk<T: omaha::HashAlgo>(path: &Path, maxlen: Option<usize>) -> R
         }
         None => filelen,
     };
+
+    let mut hasher = T::new();
 
     const CHUNKLEN: usize = 10485760; // 10M
 
@@ -71,10 +71,10 @@ pub fn hash_on_disk<T: omaha::HashAlgo>(path: &Path, maxlen: Option<usize>) -> R
         hasher.update(&databuf);
     }
 
-    Ok(omaha::Hash::from_bytes(Box::new(hasher).finalize()))
+    Ok(hasher.finalize())
 }
 
-fn do_download_and_hash<U>(client: &Client, url: U, path: &Path, expected_sha256: Option<omaha::Hash<omaha::Sha256>>, expected_sha1: Option<omaha::Hash<omaha::Sha1>>) -> Result<DownloadResult>
+fn do_download_and_hash<U>(client: &Client, url: U, path: &Path, expected_sha256: Option<Sha256Digest>, expected_sha1: Option<Sha1Digest>) -> Result<DownloadResult>
 where
     U: reqwest::IntoUrl + Clone,
     Url: From<U>,
@@ -113,10 +113,10 @@ where
     let calculated_sha1 = hash_on_disk::<omaha::Sha1>(path, None)?;
 
     debug!("    expected sha256:   {expected_sha256:?}");
-    debug!("    calculated sha256: {calculated_sha256}");
+    debug!("    calculated sha256: {calculated_sha256:?}");
     debug!("    sha256 match?      {}", expected_sha256 == Some(calculated_sha256.clone()));
     debug!("    expected sha1:   {expected_sha1:?}");
-    debug!("    calculated sha1: {calculated_sha1}");
+    debug!("    calculated sha1: {calculated_sha1:?}");
     debug!("    sha1 match?      {}", expected_sha1 == Some(calculated_sha1.clone()));
 
     if expected_sha256.is_some() && expected_sha256 != Some(calculated_sha256.clone()) {
@@ -133,7 +133,7 @@ where
     })
 }
 
-pub fn download_and_hash<U>(client: &Client, url: U, path: &Path, expected_sha256: Option<omaha::Hash<omaha::Sha256>>, expected_sha1: Option<omaha::Hash<omaha::Sha1>>) -> Result<DownloadResult>
+pub fn download_and_hash<U>(client: &Client, url: U, path: &Path, expected_sha256: Option<Sha256Digest>, expected_sha1: Option<Sha1Digest>) -> Result<DownloadResult>
 where
     U: reqwest::IntoUrl + Clone,
     Url: From<U>,
@@ -198,7 +198,7 @@ where
         name: Cow::Borrowed(path.file_name().unwrap_or(OsStr::new("fakepackage")).to_str().unwrap_or("fakepackage")),
         hash_sha256: Some(r.hash_sha256),
         hash_sha1: Some(r.hash_sha1),
-        size: FileSize::from_bytes(r.data.metadata().context(format!("failed to get metadata, path ({:?})", path.display()))?.len() as usize),
+        size: r.data.metadata().context(format!("failed to get metadata, path ({:?})", path.display()))?.len() as usize,
         url: input_url.into(),
         status: PackageStatus::Unverified,
     })
