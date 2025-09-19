@@ -114,7 +114,15 @@ pub(crate) mod sha256_from_str {
 /// Parse a hexadecimal string into the output of the generically typed hashing
 /// algorithm.
 fn try_from_hex_string<T: Hasher>(s: &str) -> Result<T::Output> {
-    let bytes = (0..s.len()).step_by(2).map(|i| u8::from_str_radix(&s[i..i + 2], 16).map_err(Error::TryFromHex)).collect::<Result<Vec<u8>>>()?;
+    // We see two characters per byte. For example "1a" = 0x1a = 26.
+    let mut bytes = Vec::with_capacity(s.len() / 2);
+
+    // Loop over two character at a time and try to convert them to a u8.
+    for i in (0..s.len()).step_by(2) {
+        let byte_str = &s[i..i + 2];
+        let byte = u8::from_str_radix(byte_str, 16).map_err(Error::TryFromHex)?;
+        bytes.push(byte);
+    }
 
     if bytes.len() == T::FINGERPRINT_SIZE {
         let mut ret = T::Output::default();
