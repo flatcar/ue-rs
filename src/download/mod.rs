@@ -212,7 +212,8 @@ fn do_download_verify(pkg: &mut Package<'_>, output_filename: Option<String>, ou
     // Unverified payload is stored in e.g. "output_dir/.unverified/oem.gz".
     // Verified payload is stored in e.g. "output_dir/oem.raw".
     let pkg_unverified = unverified_dir.join(&*pkg.name);
-    let pkg_verified = output_dir.join(output_filename.as_ref().map(OsStr::new).unwrap_or(pkg_unverified.with_extension("raw").file_name().unwrap_or_default()));
+    let mut pkg_verified = output_dir.join(output_filename.as_ref().map(OsStr::new).unwrap_or(pkg_unverified.with_extension("raw").file_name().unwrap_or_default()));
+    pkg_verified.set_extension("raw");
 
     let datablobspath = pkg.verify_signature_on_disk(&pkg_unverified, pubkey_file).context(format!("unable to verify signature \"{}\"", pkg.name))?;
 
