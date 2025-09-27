@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let res = download_and_hash(&client, url, &path, None, None)?;
     tempdir.close()?;
 
-    println!("hash: {}", res.hash_sha256);
+    println!("hash: {:?}", res.hash_sha256);
 
     Ok(())
 }

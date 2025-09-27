@@ -10,12 +10,13 @@ use reqwest::blocking::Client;
 use url::Url;
 
 use crate::{download_and_hash, hash_on_disk};
+use omaha::{Sha1Digest, Sha256Digest};
 use update_format_crau::delta_update;
 
 #[derive(Debug)]
 pub enum PackageStatus {
     ToDownload,
-    DownloadIncomplete(omaha::FileSize),
+    DownloadIncomplete(usize),
     DownloadFailed,
     BadChecksum,
     Unverified,
@@ -27,9 +28,9 @@ pub enum PackageStatus {
 pub struct Package<'a> {
     pub url: Url,
     pub name: Cow<'a, str>,
-    pub hash_sha256: Option<omaha::Hash<omaha::Sha256>>,
-    pub hash_sha1: Option<omaha::Hash<omaha::Sha1>>,
-    pub size: omaha::FileSize,
+    pub hash_sha256: Option<Sha256Digest>,
+    pub hash_sha1: Option<Sha1Digest>,
+    pub size: usize,
     pub status: PackageStatus,
 }
 
@@ -38,7 +39,7 @@ impl Package<'_> {
     // Return Sha256 hash of data in the given path.
     // If maxlen is None, a simple read to the end of the file.
     // If maxlen is Some, read only until the given length.
-    fn hash_on_disk<T: omaha::HashAlgo>(&mut self, path: &Path, maxlen: Option<usize>) -> Result<omaha::Hash<T>> {
+    fn hash_on_disk<T: omaha::Hasher>(&mut self, path: &Path, maxlen: Option<usize>) -> Result<T::Output> {
         hash_on_disk::<T>(path, maxlen)
     }
 
@@ -57,14 +58,12 @@ impl Package<'_> {
         })?;
 
         let size_on_disk = md.len() as usize;
-        let expected_size = self.size.bytes();
+        let expected_size = self.size;
 
         if size_on_disk < expected_size {
             info!("{}: have downloaded {}/{} bytes, will resume", path.display(), size_on_disk, expected_size);
 
-            self.status = PackageStatus::DownloadIncomplete(
-                omaha::FileSize::from_bytes(size_on_disk)
-            );
+            self.status = PackageStatus::DownloadIncomplete(size_on_disk);
             return Ok(());
         }
 
@@ -90,8 +89,8 @@ impl Package<'_> {
     pub fn download(&mut self, into_dir: &Path, client: &Client) -> Result<()> {
         // FIXME: use _range_start for completing downloads
         let _range_start = match self.status {
-            PackageStatus::ToDownload => 0,
-            PackageStatus::DownloadIncomplete(s) => s.bytes(),
+            PackageStatus::ToDownload => 0usize,
+            PackageStatus::DownloadIncomplete(s) => s,
             _ => return Ok(()),
         };
 
@@ -117,12 +116,12 @@ impl Package<'_> {
         Ok(())
     }
 
-    fn verify_checksum(&mut self, calculated_sha256: omaha::Hash<omaha::Sha256>, calculated_sha1: omaha::Hash<omaha::Sha1>) -> bool {
+    fn verify_checksum(&mut self, calculated_sha256: Sha256Digest, calculated_sha1: Sha1Digest) -> bool {
         debug!("    expected sha256:   {:?}", self.hash_sha256);
-        debug!("    calculated sha256: {calculated_sha256}");
+        debug!("    calculated sha256: {calculated_sha256:?}");
         debug!("    sha256 match?      {}", self.hash_sha256 == Some(calculated_sha256.clone()));
         debug!("    expected sha1:   {:?}", self.hash_sha1);
-        debug!("    calculated sha1: {calculated_sha1}");
+        debug!("    calculated sha1: {calculated_sha1:?}");
         debug!("    sha1 match?      {}", self.hash_sha1 == Some(calculated_sha1.clone()));
 
         if self.hash_sha256.is_some() && self.hash_sha256 != Some(calculated_sha256.clone()) || self.hash_sha1.is_some() && self.hash_sha1 != Some(calculated_sha1.clone()) {
@@ -165,7 +164,7 @@ impl Package<'_> {
         };
 
         let datahash = self.hash_on_disk::<omaha::Sha256>(datablobspath.as_path(), None).context(format!("failed to hash_on_disk path ({:?})", datablobspath.display()))?;
-        if datahash != omaha::Hash::from_bytes(pinfo_hash.as_slice()[..].into()) {
+        if datahash != pinfo_hash.as_slice() {
             bail!(
                 "mismatch of data hash ({:?}) with new_partition_info hash ({:?})",
                 datahash,
