@@ -97,13 +97,7 @@ impl Package<'_> {
         info!("downloading {}...", self.url);
 
         let path = into_dir.join(&*self.name);
-        match download_and_hash(
-            client,
-            self.url.clone(),
-            &path,
-            self.hash_sha256.clone(),
-            self.hash_sha1.clone(),
-        ) {
+        match download_and_hash(client, self.url.clone(), &path, self.hash_sha256, self.hash_sha1) {
             Ok(ok) => ok,
             Err(err) => {
                 error!("downloading failed with error {err}");
@@ -119,12 +113,12 @@ impl Package<'_> {
     fn verify_checksum(&mut self, calculated_sha256: Sha256Digest, calculated_sha1: Sha1Digest) -> bool {
         debug!("    expected sha256:   {:?}", self.hash_sha256);
         debug!("    calculated sha256: {calculated_sha256:?}");
-        debug!("    sha256 match?      {}", self.hash_sha256 == Some(calculated_sha256.clone()));
+        debug!("    sha256 match?      {}", self.hash_sha256 == Some(calculated_sha256));
         debug!("    expected sha1:   {:?}", self.hash_sha1);
         debug!("    calculated sha1: {calculated_sha1:?}");
-        debug!("    sha1 match?      {}", self.hash_sha1 == Some(calculated_sha1.clone()));
+        debug!("    sha1 match?      {}", self.hash_sha1 == Some(calculated_sha1));
 
-        if self.hash_sha256.is_some() && self.hash_sha256 != Some(calculated_sha256.clone()) || self.hash_sha1.is_some() && self.hash_sha1 != Some(calculated_sha1.clone()) {
+        if self.hash_sha256.is_some() && self.hash_sha256 != Some(calculated_sha256) || self.hash_sha1.is_some() && self.hash_sha1 != Some(calculated_sha1) {
             self.status = PackageStatus::BadChecksum;
             false
         } else {
@@ -152,7 +146,7 @@ impl Package<'_> {
         // Get length of header and data, including header and manifest.
         let header_data_length = delta_update::get_header_data_length(&header, &delta_archive_manifest).context("failed to get header data length")?;
         let hdhash = self.hash_on_disk::<omaha::Sha256>(from_path, Some(header_data_length)).context(format!("failed to hash_on_disk path ({:?}) failed", from_path.display()))?;
-        let hdhashvec: Vec<u8> = hdhash.clone().into();
+        let hdhashvec: Vec<u8> = hdhash.into();
 
         // Extract data blobs into a file, datablobspath.
         delta_update::get_data_blobs(&upfile, &header, &delta_archive_manifest, datablobspath.as_path()).context(format!("failed to get_data_blobs path ({:?})", datablobspath.display()))?;

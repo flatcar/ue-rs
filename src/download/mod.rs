@@ -114,15 +114,15 @@ where
 
     debug!("    expected sha256:   {expected_sha256:?}");
     debug!("    calculated sha256: {calculated_sha256:?}");
-    debug!("    sha256 match?      {}", expected_sha256 == Some(calculated_sha256.clone()));
+    debug!("    sha256 match?      {}", expected_sha256 == Some(calculated_sha256));
     debug!("    expected sha1:   {expected_sha1:?}");
     debug!("    calculated sha1: {calculated_sha1:?}");
-    debug!("    sha1 match?      {}", expected_sha1 == Some(calculated_sha1.clone()));
+    debug!("    sha1 match?      {}", expected_sha1 == Some(calculated_sha1));
 
-    if expected_sha256.is_some() && expected_sha256 != Some(calculated_sha256.clone()) {
+    if expected_sha256.is_some() && expected_sha256 != Some(calculated_sha256) {
         bail!("checksum mismatch for sha256");
     }
-    if expected_sha1.is_some() && expected_sha1 != Some(calculated_sha1.clone()) {
+    if expected_sha1.is_some() && expected_sha1 != Some(calculated_sha1) {
         bail!("checksum mismatch for sha1");
     }
 
@@ -139,7 +139,7 @@ where
     Url: From<U>,
 {
     crate::retry_loop(
-        || do_download_and_hash(client, url.clone(), path, expected_sha256.clone(), expected_sha1.clone()),
+        || do_download_and_hash(client, url.clone(), path, expected_sha256, expected_sha1),
         MAX_DOWNLOAD_RETRY,
     )
 }
