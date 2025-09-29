@@ -24,9 +24,6 @@ const DOWNLOAD_TIMEOUT: u64 = 3600;
 const HTTP_CONN_TIMEOUT: u64 = 20;
 const MAX_DOWNLOAD_RETRY: u32 = 20;
 
-pub const TARGET_FILENAME_DEFAULT: &str = "oem-azure.gz";
-pub const PAYLOAD_URL_DEFAULT: &str = "https://update.release.flatcar-linux.net/amd64-usr/current/oem-azure.gz";
-
 const UNVERFIED_SUFFIX: &str = ".unverified";
 const TMP_SUFFIX: &str = ".tmp";
 
@@ -212,7 +209,8 @@ fn do_download_verify(pkg: &mut Package<'_>, output_filename: Option<String>, ou
     // Unverified payload is stored in e.g. "output_dir/.unverified/oem.gz".
     // Verified payload is stored in e.g. "output_dir/oem.raw".
     let pkg_unverified = unverified_dir.join(&*pkg.name);
-    let pkg_verified = output_dir.join(output_filename.as_ref().map(OsStr::new).unwrap_or(pkg_unverified.with_extension("raw").file_name().unwrap_or_default()));
+    let mut pkg_verified = output_dir.join(output_filename.as_ref().map(OsStr::new).unwrap_or(pkg_unverified.with_extension("raw").file_name().unwrap_or_default()));
+    pkg_verified.set_extension("raw");
 
     let datablobspath = pkg.verify_signature_on_disk(&pkg_unverified, pubkey_file).context(format!("unable to verify signature \"{}\"", pkg.name))?;
 
@@ -246,8 +244,8 @@ impl DownloadVerify {
         }
     }
 
-    pub fn target_filename(mut self, param_target_filename: String) -> Self {
-        self.target_filename = Some(param_target_filename);
+    pub fn target_filename(mut self, param_target_filename: Option<String>) -> Self {
+        self.target_filename = param_target_filename;
         self
     }
 
@@ -256,8 +254,8 @@ impl DownloadVerify {
         self
     }
 
-    pub fn payload_url(mut self, param_payload_url: String) -> Self {
-        self.payload_url = Some(param_payload_url);
+    pub fn payload_url(mut self, param_payload_url: Option<String>) -> Self {
+        self.payload_url = param_payload_url;
         self
     }
 

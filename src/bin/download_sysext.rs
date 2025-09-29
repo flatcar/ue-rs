@@ -10,7 +10,7 @@ use anyhow::Result;
 use argh::FromArgs;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 
-use ue_rs::{TARGET_FILENAME_DEFAULT, DownloadVerify};
+use ue_rs::DownloadVerify;
 
 #[derive(FromArgs, Debug)]
 /// Parse an update-engine Omaha XML response to extract sysext images, then download and verify
@@ -102,9 +102,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let glob_set = args.image_match_glob_set()?;
 
     DownloadVerify::new(args.output_dir, args.pubkey_file, args.take_first_match, glob_set)
-        .target_filename(args.target_filename.unwrap_or(TARGET_FILENAME_DEFAULT.into()))
+        .target_filename(args.target_filename)
         .input_xml(input_xml.unwrap_or_default())
-        .payload_url(payload_url.clone())
+        .payload_url(Some(payload_url.clone()))
         .run()?;
 
     Ok(())
