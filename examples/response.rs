@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
             #[rustfmt::skip]
             if let Some(h) = pkg.hash.as_ref() {
-                println!("      sha1: {}", h);
+                println!("      sha1: {:?}", h);
             };
 
             #[rustfmt::skip]
@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             #[rustfmt::skip]
             hash_sha256
                 .map(|h| {
-                    println!("      sha256: {}", h);
+                    println!("      sha256: {:?}", h);
                 });
 
             println!();
