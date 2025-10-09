@@ -53,3 +53,4 @@ target/debug/download_sysext -p $PROD_KEY -m oem-azure.gz -o /var/tmp/outdir/ -u
 ```
 
 That will download an OEM update payload from `$OEM_FILE`, parse its headers into metadata, data, and signature to verify against the data. The production payload key needs to be in place at `$PROD_KEY` and can be found [here](https://github.com/flatcar/scripts/blob/main/sdk_container/src/third_party/coreos-overlay/coreos-base/coreos-au-key/files/official-v2.pub.pem).
+
