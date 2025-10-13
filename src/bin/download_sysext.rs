@@ -94,8 +94,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         (Some(_), Some(_)) => {
             return Err("only one of the options can be given, --input-xml or --payload-url.".into());
         }
-        (Some(_), None) => return Ok(()),
-        (None, Some(url)) => &url.clone(),
+        (Some(_), None) => None,
+        (None, Some(url)) => Some(url.clone()),
         (None, None) => return Err("either --input-xml or --payload-url must be given.".into()),
     };
 
@@ -104,7 +104,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     DownloadVerify::new(args.output_dir, args.pubkey_file, args.take_first_match, glob_set)
         .target_filename(args.target_filename)
         .input_xml(input_xml.unwrap_or_default())
-        .payload_url(Some(payload_url.clone()))
+        .payload_url(payload_url)
         .run()?;
 
     Ok(())
