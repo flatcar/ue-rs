@@ -3,15 +3,16 @@ use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use log::{debug, error, info};
+use log::{debug, info};
 
-use anyhow::{Context, Result, bail, anyhow};
 use reqwest::blocking::Client;
 use url::Url;
 
 use crate::{download_and_hash, hash_on_disk};
 use omaha::{Sha1Digest, Sha256Digest};
 use update_format_crau::delta_update;
+
+use crate::{error::Error, Result};
 
 #[derive(Debug)]
 pub enum PackageStatus {
@@ -53,11 +54,7 @@ impl Package<'_> {
             return Ok(());
         }
 
-        let md = fs::metadata(&path).context({
-            format!("failed to get metadata, path ({:?})", path.display())
-        })?;
-
-        let size_on_disk = md.len() as usize;
+        let size_on_disk = fs::metadata(&path).map_err(Error::GetFileMetadata)?.len() as usize;
         let expected_size = self.size;
 
         if size_on_disk < expected_size {
@@ -69,12 +66,9 @@ impl Package<'_> {
 
         if size_on_disk == expected_size {
             info!("{}: download complete, checking hash...", path.display());
-            let hash_sha256 = self.hash_on_disk::<omaha::Sha256>(&path, None).context({
-                format!("failed to hash_on_disk, path ({:?})", path.display())
-            })?;
-            let hash_sha1 = self.hash_on_disk::<omaha::Sha1>(&path, None).context({
-                format!("failed to hash_on_disk, path ({:?})", path.display())
-            })?;
+            let hash_sha256 = self.hash_on_disk::<omaha::Sha256>(&path, None)?;
+            let hash_sha1 = self.hash_on_disk::<omaha::Sha1>(&path, None)?;
+
             if self.verify_checksum(hash_sha256, hash_sha1) {
                 info!("{}: good hash, will continue without re-download", path.display());
             } else {
@@ -97,17 +91,18 @@ impl Package<'_> {
         info!("downloading {}...", self.url);
 
         let path = into_dir.join(&*self.name);
-        match download_and_hash(client, self.url.clone(), &path, self.hash_sha256, self.hash_sha1) {
-            Ok(ok) => ok,
-            Err(err) => {
-                error!("downloading failed with error {err}");
-                self.status = PackageStatus::DownloadFailed;
-                bail!("unable to download data(url {})", self.url);
-            }
-        };
 
-        self.status = PackageStatus::Unverified;
-        Ok(())
+        // TODO: why ignore returned DownloadResult here?
+        match download_and_hash(client, self.url.clone(), &path, self.hash_sha256, self.hash_sha1) {
+            Ok(_) => {
+                self.status = PackageStatus::Unverified;
+                Ok(())
+            }
+            Err(err) => {
+                self.status = PackageStatus::DownloadFailed;
+                Err(err)
+            }
+        }
     }
 
     fn verify_checksum(&mut self, calculated_sha256: Sha256Digest, calculated_sha1: Sha1Digest) -> bool {
@@ -128,61 +123,53 @@ impl Package<'_> {
     }
 
     pub fn verify_signature_on_disk(&mut self, from_path: &Path, pubkey_path: &str) -> Result<PathBuf> {
-        let upfile = File::open(from_path).context(format!("failed to open path ({:?})", from_path.display()))?;
+        let upfile = File::open(from_path).map_err(Error::OpenFile)?;
 
         // Read update payload from file, read delta update header from the payload.
-        let header = delta_update::read_delta_update_header(&upfile).context(format!("failed to read_delta_update_header path ({:?})", from_path.display()))?;
+        let header = delta_update::read_delta_update_header(&upfile)?;
 
-        let mut delta_archive_manifest = delta_update::get_manifest_bytes(&upfile, &header).context(format!("failed to get_manifest_bytes path ({:?})", from_path.display()))?;
+        let mut delta_archive_manifest = delta_update::get_manifest_bytes(&upfile, &header)?;
 
         // Extract signature from header.
-        let sigbytes = delta_update::get_signatures_bytes(&upfile, &header, &mut delta_archive_manifest).context(format!("failed to get_signatures_bytes path ({:?})", from_path.display()))?;
+        let sigbytes = delta_update::get_signatures_bytes(&upfile, &header, &mut delta_archive_manifest)?;
 
         // tmp dir == "/var/tmp/outdir/.tmp"
-        let tmpdirpathbuf = from_path.parent().ok_or(anyhow!("unable to get parent dir"))?.parent().ok_or(anyhow!("unable to get parent dir"))?.join(".tmp");
+        let tmpdirpathbuf = from_path.parent().ok_or(Error::InvalidParentPath(from_path.to_path_buf()))?.parent().ok_or(Error::InvalidParentPath(from_path.to_path_buf()))?.join(".tmp");
         let tmpdir = tmpdirpathbuf.as_path();
         let datablobspath = tmpdir.join("ue_data_blobs");
 
         // Get length of header and data, including header and manifest.
-        let header_data_length = delta_update::get_header_data_length(&header, &delta_archive_manifest).context("failed to get header data length")?;
-        let hdhash = self.hash_on_disk::<omaha::Sha256>(from_path, Some(header_data_length)).context(format!("failed to hash_on_disk path ({:?}) failed", from_path.display()))?;
+        let header_data_length = delta_update::get_header_data_length(&header, &delta_archive_manifest)?;
+        let hdhash = self.hash_on_disk::<omaha::Sha256>(from_path, Some(header_data_length))?;
         let hdhashvec: Vec<u8> = hdhash.into();
 
         // Extract data blobs into a file, datablobspath.
-        delta_update::get_data_blobs(&upfile, &header, &delta_archive_manifest, datablobspath.as_path()).context(format!("failed to get_data_blobs path ({:?})", datablobspath.display()))?;
+        delta_update::get_data_blobs(&upfile, &header, &delta_archive_manifest, datablobspath.as_path())?;
 
         // Check for hash of data blobs with new_partition_info hash.
         let pinfo_hash = match &delta_archive_manifest.new_partition_info.hash {
             Some(hash) => hash,
-            None => bail!("unable to get new_partition_info hash"),
+            None => return Err(Error::MissingPartitionHash),
         };
 
-        let datahash = self.hash_on_disk::<omaha::Sha256>(datablobspath.as_path(), None).context(format!("failed to hash_on_disk path ({:?})", datablobspath.display()))?;
+        let datahash = self.hash_on_disk::<omaha::Sha256>(datablobspath.as_path(), None)?;
         if datahash != pinfo_hash.as_slice() {
-            bail!(
-                "mismatch of data hash ({:?}) with new_partition_info hash ({:?})",
-                datahash,
-                pinfo_hash
-            );
+            let mut pinfo_hash_array = [0; 32];
+            pinfo_hash_array.copy_from_slice(pinfo_hash);
+            return Err(Error::Sha256ChecksumMismatch(datahash, pinfo_hash_array));
         }
 
         // Parse signature data from sig blobs, data blobs, public key, and verify.
         match delta_update::parse_signature_data(&sigbytes, hdhashvec.as_slice(), pubkey_path) {
-            Ok(_) => (),
-            _ => {
-                self.status = PackageStatus::BadSignature;
-                bail!(
-                    "unable to parse and verify signature, sigbytes ({:?}), hdhash ({:?}), pubkey_path ({:?})",
-                    sigbytes,
-                    hdhash,
-                    pubkey_path
-                );
+            // TODO: why throw away the result of the above call here?
+            Ok(_) => {
+                self.status = PackageStatus::Verified;
+                Ok(datablobspath)
             }
-        };
-
-        println!("Parsed and verified signature data from file {from_path:?}");
-
-        self.status = PackageStatus::Verified;
-        Ok(datablobspath)
+            Err(err) => {
+                self.status = PackageStatus::BadSignature;
+                Err(err.into())
+            }
+        }
     }
 }
