@@ -1,12 +1,11 @@
 use std::error::Error;
 use std::borrow::Cow;
 
-use anyhow::{Context, Result};
 use hard_xml::XmlRead;
 use url::Url;
 use omaha::Sha256Digest;
 
-fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, Sha256Digest)>> {
+fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, Sha256Digest)>, ()> {
     let mut to_download: Vec<(Url, Sha256Digest)> = Vec::new();
 
     for app in &resp.apps {
@@ -59,9 +58,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         track: Cow::Borrowed(TRACK_DEFAULT),
     };
 
-    let response_text = ue_rs::request::perform(&client, parameters).context(format!(
-        "perform({APP_VERSION_DEFAULT}, {MACHINE_ID_DEFAULT}, {TRACK_DEFAULT}) failed"
-    ))?;
+    let response_text = ue_rs::request::perform(&client, parameters)?;
 
     println!("response:\n\t{:#?}", response_text);
     println!();
@@ -69,9 +66,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     ////
     // parse response
     ////
-    let resp = omaha::Response::from_str(&response_text).context("failed to parse response")?;
+    let resp = omaha::Response::from_str(&response_text)?;
 
-    let pkgs_to_dl = get_pkgs_to_download(&resp).context("failed to get packages to download")?;
+    // TODO: fine for an example but shouldnt recommend
+    let pkgs_to_dl = get_pkgs_to_download(&resp).unwrap();
 
     ////
     // download
@@ -81,7 +79,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let tempdir = tempfile::tempdir()?;
         let path = tempdir.path().join("tmpfile");
-        let res = ue_rs::download_and_hash(&client, url.clone(), &path, Some(expected_sha256.clone()), None).context(format!("download_and_hash({url:?}) failed"))?;
+        let res = ue_rs::download_and_hash(&client, url.clone(), &path, Some(expected_sha256.clone()), None)?;
         tempdir.close()?;
 
         println!("\texpected sha256:   {:?}", expected_sha256);

@@ -8,4 +8,7 @@ pub use download::package::PackageStatus;
 mod util;
 pub use util::retry_loop;
 
+mod error;
 pub mod request;
+
+pub type Result<T> = std::result::Result<T, error::Error>;
