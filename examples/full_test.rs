@@ -12,12 +12,12 @@ fn get_pkgs_to_download(resp: &omaha::Response) -> Result<Vec<(Url, Sha256Digest
     for app in &resp.apps {
         let manifest = &app.update_check.manifest;
 
-        for pkg in &manifest.packages {
+        for pkg in &manifest.packages.packages {
             #[rustfmt::skip]
             let hash_sha256 = pkg.hash_sha256
                 .as_ref()
                 .or_else(|| {
-                    manifest.actions.iter()
+                    manifest.actions.actions.iter()
                         .find(|a| a.event == omaha::response::ActionEvent::PostInstall)
                         .map(|a| &a.sha256)
                 });

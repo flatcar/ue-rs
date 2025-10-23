@@ -129,10 +129,18 @@ pub struct Manifest<'a> {
     pub version: Cow<'a, str>,
 
     #[xml(child = "packages")]
-    pub packages: Vec<Package<'a>>,
+    pub packages: Packages<'a>,
 
     #[xml(child = "actions")]
-    pub actions: Vec<Action>,
+    pub actions: Actions,
+}
+
+#[derive(XmlRead, Debug)]
+#[xml(tag = "packages")]
+#[cfg_attr(test, derive(PartialEq, Default))]
+pub struct Packages<'a> {
+    #[xml(child = "package")]
+    pub packages: Vec<Package<'a>>,
 }
 
 #[derive(XmlRead, Debug)]
@@ -153,6 +161,14 @@ pub struct Package<'a> {
 
     #[xml(attr = "hash_sha256", with = "sha256_from_str")]
     pub hash_sha256: Option<Sha256Digest>,
+}
+
+#[derive(XmlRead, Debug, Default)]
+#[xml(tag = "actions")]
+#[cfg_attr(test, derive(PartialEq))]
+pub struct Actions {
+    #[xml(child = "action")]
+    pub actions: Vec<Action>,
 }
 
 #[derive(XmlRead, Debug)]
@@ -337,7 +353,7 @@ mod tests {
     #[test]
     fn app_xml_read() {
         test_xml_read(
-            format!("<app appid=\"{{{TEST_UUID}}}\" status=\"\"><updatecheck status=\"\"><manifest version=\"\"/><urls></urls></updatecheck></app>",).as_str(),
+            format!("<app appid=\"{{{TEST_UUID}}}\" status=\"\"><updatecheck status=\"\"><manifest version=\"\"><packages/><actions/></manifest><urls></urls></updatecheck></app>",).as_str(),
             App {
                 id: uuid::uuid!(TEST_UUID),
                 ..App::default()

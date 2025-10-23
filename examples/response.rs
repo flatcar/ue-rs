@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let manifest = &app.update_check.manifest;
         println!("  version {}:", manifest.version);
 
-        for pkg in &manifest.packages {
+        for pkg in &manifest.packages.packages {
             println!("    package {}:", pkg.name);
 
             #[rustfmt::skip]
@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let hash_sha256 = pkg.hash_sha256
                 .as_ref()
                 .or_else(|| {
-                    manifest.actions.iter()
+                    manifest.actions.actions.iter()
                         .find(|a| a.event == omaha::response::ActionEvent::PostInstall)
                         .map(|a| &a.sha256)
                 });
