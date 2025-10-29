@@ -8,7 +8,7 @@ use url::Url;
 
 use crate::Error::{UnknownActionEvent, UnknownSuccessAction};
 use crate::uuid::braced_uuid;
-use crate::{Sha1Digest, Sha256Digest, Error, sha1_from_str, sha256_from_str};
+use crate::{Sha1Digest, Sha256Digest, Error, sha1_from_base64_str, sha256_from_base64_str, sha256_from_hex_str};
 
 #[derive(XmlRead, Debug)]
 #[xml(tag = "response")]
@@ -150,7 +150,7 @@ pub struct Package<'a> {
     #[xml(attr = "name")]
     pub name: Cow<'a, str>,
 
-    #[xml(attr = "hash", with = "sha1_from_str")]
+    #[xml(attr = "hash", with = "sha1_from_base64_str")]
     pub hash: Option<Sha1Digest>,
 
     #[xml(attr = "size")]
@@ -159,7 +159,7 @@ pub struct Package<'a> {
     #[xml(attr = "required")]
     pub required: bool,
 
-    #[xml(attr = "hash_sha256", with = "sha256_from_str")]
+    #[xml(attr = "hash_sha256", with = "sha256_from_hex_str")]
     pub hash_sha256: Option<Sha256Digest>,
 }
 
@@ -178,7 +178,7 @@ pub struct Action {
     #[xml(attr = "event")]
     pub event: ActionEvent,
 
-    #[xml(attr = "sha256", with = "sha256_from_str")]
+    #[xml(attr = "sha256", with = "sha256_from_base64_str")]
     pub sha256: Sha256Digest,
 
     #[xml(attr = "DisablePayloadBackoff")]
@@ -333,16 +333,16 @@ mod tests {
     #[test]
     fn package_xml_read_hashes() {
         const NAME: &str = "name";
-        const SHA1_STR: &str = "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d";
+        const BASE64_STR: &str = "FF+ci4cThKAdESIk5GbSgrN0Q7A=";
         const SIZE: usize = 1;
         const REQUIRED: bool = false;
         const SHA256_STR: &str = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
 
         test_xml_read(
-            format!("<package name=\"{NAME}\" hash=\"{SHA1_STR}\" size=\"{SIZE}\" required=\"{REQUIRED}\" hash_sha256=\"{SHA256_STR}\"/>",).as_str(),
+            format!("<package name=\"{NAME}\" hash=\"{BASE64_STR}\" size=\"{SIZE}\" required=\"{REQUIRED}\" hash_sha256=\"{SHA256_STR}\"/>",).as_str(),
             Package {
                 name: Cow::Borrowed(NAME),
-                hash: Some(Sha1::try_from_hex_string(SHA1_STR).unwrap()),
+                hash: Some(Sha1::try_from_base64_string(BASE64_STR).unwrap()),
                 size: SIZE,
                 required: REQUIRED,
                 hash_sha256: Some(Sha256::try_from_hex_string(SHA256_STR).unwrap()),

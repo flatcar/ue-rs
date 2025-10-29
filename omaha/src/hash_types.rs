@@ -1,4 +1,5 @@
 use std::str;
+use ct_codecs::{Base64, Decoder};
 
 use sha2::Digest;
 
@@ -42,8 +43,12 @@ pub trait Hasher {
     fn finalize(self) -> Self::Output;
 
     /// Construct a hash of the output format of the associated hashing
-    /// algorithm using a provided string.
+    /// algorithm using a provided hex string.
     fn try_from_hex_string(s: &str) -> Result<Self::Output>;
+
+    /// Construct a hash of the output format of the associated hashing
+    /// algorithm using a provided base64 string.
+    fn try_from_base64_string(s: &str) -> Result<Self::Output>;
 }
 
 impl Hasher for Sha1 {
@@ -67,15 +72,19 @@ impl Hasher for Sha1 {
     fn try_from_hex_string(s: &str) -> Result<Self::Output> {
         try_from_hex_string::<Self>(s)
     }
+
+    fn try_from_base64_string(s: &str) -> Result<Self::Output> {
+        try_from_base64_string::<Self>(s)
+    }
 }
 
-pub(crate) mod sha1_from_str {
+pub(crate) mod sha1_from_base64_str {
     use crate::{Hasher, Sha1, Sha1Digest};
     use crate::Result;
 
     #[inline]
     pub(crate) fn from_str(s: &str) -> Result<Sha1Digest> {
-        <Sha1 as Hasher>::try_from_hex_string(s)
+        <Sha1 as Hasher>::try_from_base64_string(s)
     }
 }
 
@@ -96,18 +105,33 @@ impl Hasher for Sha256 {
     fn finalize(self) -> Self::Output {
         self.0.finalize().into()
     }
+
     fn try_from_hex_string(s: &str) -> Result<Self::Output> {
         try_from_hex_string::<Self>(s)
     }
+
+    fn try_from_base64_string(s: &str) -> Result<Self::Output> {
+        try_from_base64_string::<Self>(s)
+    }
 }
 
-pub(crate) mod sha256_from_str {
+pub(crate) mod sha256_from_hex_str {
     use crate::{Hasher, Sha256, Sha256Digest};
     use crate::Result;
 
     #[inline]
     pub(crate) fn from_str(s: &str) -> Result<Sha256Digest> {
         <Sha256 as Hasher>::try_from_hex_string(s)
+    }
+}
+
+pub(crate) mod sha256_from_base64_str {
+    use crate::{Hasher, Sha256, Sha256Digest};
+    use crate::Result;
+
+    #[inline]
+    pub(crate) fn from_str(s: &str) -> Result<Sha256Digest> {
+        <Sha256 as Hasher>::try_from_base64_string(s)
     }
 }
 
@@ -136,10 +160,29 @@ fn try_from_hex_string<T: Hasher>(s: &str) -> Result<T::Output> {
     }
 }
 
+/// Parse a base64 string into the output of the generically typed hashing
+/// algorithm.
+fn try_from_base64_string<T: Hasher>(s: &str) -> Result<T::Output> {
+    let mut bytes = vec![0; s.len()];
+
+    let bytes = Base64::decode(bytes.as_mut(), s, None).map_err(Error::TryFromBase64)?;
+
+    if bytes.len() == T::FINGERPRINT_SIZE {
+        let mut digest = T::Output::default();
+        digest.as_mut().copy_from_slice(bytes);
+        Ok(digest)
+    } else {
+        Err(Error::InvalidDigestLength {
+            expected: T::FINGERPRINT_SIZE,
+            actual: bytes.len(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::Hasher;
-    use super::{Sha256, Sha1, try_from_hex_string};
+    use super::{Sha256, Sha1, try_from_hex_string, try_from_base64_string};
     use sha1::Digest;
 
     const TEST_DATA: &[u8] = b"test string";
@@ -196,5 +239,26 @@ mod tests {
 
         assert!(sha256_digest.is_ok());
         assert_eq!(sha256_digest.unwrap(), exp_bytes);
+    }
+
+    #[test]
+    fn try_from_base64_string_sha1() {
+        let base64_string = "FF+ci4cThKAdESIk5GbSgrN0Q7A=";
+        let exp_bytes = [20, 95, 156, 139, 135, 19, 132, 160, 29, 17, 34, 36, 228, 102, 210, 130, 179, 116, 67, 176];
+        let sha1_digest = try_from_base64_string::<Sha1>(base64_string);
+
+        assert!(sha1_digest.is_ok());
+        assert_eq!(sha1_digest.unwrap(), exp_bytes);
+    }
+
+    #[test]
+    fn try_from_base64_string_sha256() {
+        let base64_string = "LPJNul+wow4m6DsqxbninhsWHlwfp0JecwQzYpOLmCQ=";
+
+        let exp_bytes = [44, 242, 77, 186, 95, 176, 163, 14, 38, 232, 59, 42, 197, 185, 226, 158, 27, 22, 30, 92, 31, 167, 66, 94, 115, 4, 51, 98, 147, 139, 152, 36];
+        let sha256_digest = try_from_base64_string::<Sha256>(base64_string);
+
+        assert!(sha256_digest.is_ok());
+        assert_eq!(sha256_digest.unwrap(), &exp_bytes[..]);
     }
 }
