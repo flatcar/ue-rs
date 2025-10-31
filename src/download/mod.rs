@@ -147,7 +147,7 @@ fn get_pkgs_to_download<'a>(resp: &'a omaha::Response, glob_set: &GlobSet) -> Re
     for app in &resp.apps {
         let manifest = &app.update_check.manifest;
 
-        for pkg in &manifest.packages {
+        for pkg in &manifest.packages.packages {
             if !glob_set.is_match(&*pkg.name) {
                 info!("package `{}` doesn't match glob pattern, skipping", pkg.name);
                 continue;
