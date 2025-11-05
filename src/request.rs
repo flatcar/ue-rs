@@ -1,7 +1,8 @@
 use std::borrow::Cow;
 
-use anyhow::{Context, Result};
 use hard_xml::XmlWrite;
+use crate::error::Error;
+use crate::Result;
 
 //
 // SERVER=https://public.update.flatcar-linux.net/v1/update/
@@ -67,18 +68,14 @@ pub fn perform(client: &reqwest::blocking::Client, parameters: Parameters<'_>) -
             ],
         };
 
-        r.to_string().context("failed to convert to string")?
+        r.to_string().map_err(Error::XmlRequestToString)?
     };
 
     // TODO: remove
     println!("request body:\n\t{req_body}");
     println!();
 
-    #[rustfmt::skip]
-    let resp = client.post(UPDATE_URL)
-        .body(req_body)
-        .send()
-        .context("client post send({UPDATE_URL}) failed")?;
+    let resp = client.post(UPDATE_URL).body(req_body).send().map_err(Error::PostRequestFailed)?;
 
-    resp.text().context("failed to get response")
+    resp.text().map_err(Error::GetResponseBodyText)
 }

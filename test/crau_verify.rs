@@ -4,7 +4,6 @@ use std::fs;
 
 use update_format_crau::delta_update;
 
-use anyhow::Context;
 use argh::FromArgs;
 
 const PUBKEY_FILE: &str = "../src/testdata/public_key_test_pkcs8.pem";
@@ -43,7 +42,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let headerdatapath = tmpdir.join("ue_header_data");
 
     // Get length of header and data, including header and manifest.
-    let header_data_length = delta_update::get_header_data_length(&header, &delta_archive_manifest).context("failed to get header data length")?;
+    let header_data_length = delta_update::get_header_data_length(&header, &delta_archive_manifest)?;
     let hdhash = ue_rs::hash_on_disk::<omaha::Sha256>(headerdatapath.as_path(), Some(header_data_length))?;
     let hdhashvec: Vec<u8> = hdhash.into();
 

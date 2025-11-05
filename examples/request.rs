@@ -1,8 +1,6 @@
 use std::error::Error;
 use std::borrow::Cow;
 
-use anyhow::Context;
-
 use ue_rs::request;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -19,9 +17,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         track: Cow::Borrowed(TRACK_DEFAULT),
     };
 
-    let response = request::perform(&client, parameters).context(format!(
-        "perform({APP_VERSION_DEFAULT}, {MACHINE_ID_DEFAULT}, {TRACK_DEFAULT}) failed"
-    ))?;
+    let response = request::perform(&client, parameters)?;
 
     println!("response:\n\t{:#?}", response);
 

@@ -9,15 +9,16 @@ use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 
-use anyhow::{Context, Result, anyhow, bail};
 use globset::GlobSet;
 use hard_xml::XmlRead;
 use log::{debug, info, warn};
-use reqwest::{StatusCode, blocking::Client, redirect::Policy};
+use reqwest::{blocking::Client, redirect::Policy};
 use url::Url;
 
 use crate::{Package, PackageStatus};
 use omaha::{Sha1Digest, Sha256Digest};
+use crate::error::Error;
+use crate::Result;
 
 const DOWNLOAD_TIMEOUT: u64 = 3600;
 const HTTP_CONN_TIMEOUT: u64 = 20;
@@ -33,9 +34,9 @@ pub struct DownloadResult {
 }
 
 pub fn hash_on_disk<T: omaha::Hasher>(path: &Path, maxlen: Option<usize>) -> Result<T::Output> {
-    let file = File::open(path).context(format!("File::open({:?})", path))?;
+    let file = File::open(path).map_err(Error::OpenFile)?;
 
-    let filelen = file.metadata().context(format!("failed to get metadata of {:?}", path))?.len() as usize;
+    let filelen = file.metadata().map_err(Error::GetFileMetadata)?.len() as usize;
 
     let mut maxlen_to_read: usize = match maxlen {
         Some(len) => {
@@ -61,7 +62,7 @@ pub fn hash_on_disk<T: omaha::Hasher>(path: &Path, maxlen: Option<usize>) -> Res
             databuf.truncate(maxlen_to_read);
         }
 
-        freader.read_exact(&mut databuf).context(format!("failed to read_exact(chunklen {:?})", databuf.len()))?;
+        freader.read_exact(&mut databuf).map_err(Error::ReadFromFile)?;
 
         maxlen_to_read -= databuf.len();
 
@@ -78,10 +79,7 @@ where
 {
     let client_url = url.clone();
 
-    #[rustfmt::skip]
-    let mut res = client.get(url.clone())
-        .send()
-        .context(format!("client get & send{:?} failed ", client_url.as_str()))?;
+    let mut res = client.get(url.clone()).send().map_err(|err| Error::SendGetRequest(url.into(), err))?;
 
     // Redirect was already handled at this point, so there is no need to touch
     // response or url again. Simply print info and continue.
@@ -89,22 +87,15 @@ where
         info!("redirected to URL {:?}", res.url());
     }
 
-    // Return immediately on download failure on the client side.
-    let status = res.status();
-
-    if !status.is_success() {
-        match status {
-            StatusCode::FORBIDDEN | StatusCode::NOT_FOUND => {
-                bail!("cannnot fetch remotely with status code {:?}", status);
-            }
-            _ => bail!("general failure with status code {:?}", status),
-        }
+    match res.status() {
+        status if !status.is_success() => return Err(Error::GetRequestFailed(status)),
+        _ => {}
     }
 
     println!("writing to {}", path.display());
 
-    let mut file = File::create(path).context(format!("failed to create path ({:?})", path.display()))?;
-    res.copy_to(&mut file)?;
+    let mut file = File::create(path).map_err(Error::CreateFile)?;
+    res.copy_to(&mut file).map_err(Error::CopyRequestBodyToFile)?;
 
     let calculated_sha256 = hash_on_disk::<omaha::Sha256>(path, None)?;
     let calculated_sha1 = hash_on_disk::<omaha::Sha1>(path, None)?;
@@ -116,11 +107,14 @@ where
     debug!("    calculated sha1: {calculated_sha1:?}");
     debug!("    sha1 match?      {}", expected_sha1 == Some(calculated_sha1));
 
-    if expected_sha256.is_some() && expected_sha256 != Some(calculated_sha256) {
-        bail!("checksum mismatch for sha256");
+    match expected_sha256 {
+        Some(exp) if exp != calculated_sha256 => return Err(Error::Sha256ChecksumMismatch(exp, calculated_sha256)),
+        _ => {}
     }
-    if expected_sha1.is_some() && expected_sha1 != Some(calculated_sha1) {
-        bail!("checksum mismatch for sha1");
+
+    match expected_sha1 {
+        Some(exp) if exp != calculated_sha1 => return Err(Error::Sha1ChecksumMismatch(exp, calculated_sha1)),
+        _ => {}
     }
 
     Ok(DownloadResult {
@@ -189,13 +183,13 @@ where
     U: reqwest::IntoUrl + From<U> + std::clone::Clone + std::fmt::Debug,
     Url: From<U>,
 {
-    let r = download_and_hash(client, input_url.clone(), path, None, None).context(format!("unable to download data(url {input_url:?})"))?;
+    let r = download_and_hash(client, input_url.clone(), path, None, None)?;
 
     Ok(Package {
         name: Cow::Borrowed(path.file_name().unwrap_or(OsStr::new("fakepackage")).to_str().unwrap_or("fakepackage")),
         hash_sha256: Some(r.hash_sha256),
         hash_sha1: Some(r.hash_sha1),
-        size: r.data.metadata().context(format!("failed to get metadata, path ({:?})", path.display()))?.len() as usize,
+        size: r.data.metadata().map_err(Error::GetFileMetadata)?.len() as usize,
         url: input_url.into(),
         status: PackageStatus::Unverified,
     })
@@ -204,7 +198,7 @@ where
 fn do_download_verify(pkg: &mut Package<'_>, output_filename: Option<String>, output_dir: &Path, unverified_dir: &Path, pubkey_file: &str, client: &Client) -> Result<()> {
     pkg.check_download(unverified_dir)?;
 
-    pkg.download(unverified_dir, client).context(format!("unable to download \"{:?}\"", pkg.name))?;
+    pkg.download(unverified_dir, client)?;
 
     // Unverified payload is stored in e.g. "output_dir/.unverified/oem.gz".
     // Verified payload is stored in e.g. "output_dir/oem.raw".
@@ -212,11 +206,11 @@ fn do_download_verify(pkg: &mut Package<'_>, output_filename: Option<String>, ou
     let mut pkg_verified = output_dir.join(output_filename.as_ref().map(OsStr::new).unwrap_or(pkg_unverified.with_extension("raw").file_name().unwrap_or_default()));
     pkg_verified.set_extension("raw");
 
-    let datablobspath = pkg.verify_signature_on_disk(&pkg_unverified, pubkey_file).context(format!("unable to verify signature \"{}\"", pkg.name))?;
+    let datablobspath = pkg.verify_signature_on_disk(&pkg_unverified, pubkey_file)?;
 
     // write extracted data into the final data.
     debug!("data blobs written into file {pkg_verified:?}");
-    fs::rename(datablobspath, pkg_verified)?;
+    fs::rename(datablobspath, pkg_verified).map_err(Error::RenameFile)?;
 
     Ok(())
 }
@@ -264,8 +258,8 @@ impl DownloadVerify {
 
         let unverified_dir = output_dir.join(UNVERFIED_SUFFIX);
         let temp_dir = output_dir.join(TMP_SUFFIX);
-        fs::create_dir_all(&unverified_dir)?;
-        fs::create_dir_all(&temp_dir)?;
+        fs::create_dir_all(&unverified_dir).map_err(Error::CreateDirectory)?;
+        fs::create_dir_all(&temp_dir).map_err(Error::CreateDirectory)?;
 
         // The default policy of reqwest Client supports max 10 attempts on HTTP redirect.
         let client = Client::builder()
@@ -273,18 +267,19 @@ impl DownloadVerify {
             .connect_timeout(Duration::from_secs(HTTP_CONN_TIMEOUT))
             .timeout(Duration::from_secs(DOWNLOAD_TIMEOUT))
             .redirect(Policy::default())
-            .build()?;
+            .build()
+            .map_err(Error::BuildClient)?;
 
         if self.payload_url.is_some() {
             let url = self.payload_url.clone().unwrap();
-            let u = Url::parse(&url)?;
-            let fname = u.path_segments().ok_or(anyhow!("failed to get path segments, url ({:?})", u))?.next_back().ok_or(anyhow!("failed to get path segments, url ({:?})", u))?;
+            let u = Url::parse(&url).map_err(Error::ParseUrl)?;
+            let fname = u.path_segments().ok_or(Error::InvalidBaseUrl(u.clone()))?.next_back().ok_or(Error::EmptyUrlIterator)?;
             let mut pkg_fake: Package;
 
             let temp_payload_path = unverified_dir.join(fname);
             pkg_fake = fetch_url_to_file(
                 &temp_payload_path,
-                Url::from_str(url.as_str()).context(anyhow!("failed to convert into url ({:?})", self.payload_url))?,
+                Url::from_str(url.as_str()).map_err(Error::ParseUrl)?,
                 &client,
             )?;
             do_download_verify(
@@ -303,7 +298,7 @@ impl DownloadVerify {
         ////
         // parse response
         ////
-        let resp = omaha::Response::from_str(&self.input_xml)?;
+        let resp = omaha::Response::from_str(&self.input_xml).map_err(Error::InvalidHashDigestString)?;
 
         let mut pkgs_to_dl = get_pkgs_to_download(&resp, &self.glob_set)?;
 
@@ -329,7 +324,7 @@ impl DownloadVerify {
         }
 
         // clean up data
-        fs::remove_dir_all(temp_dir)?;
+        fs::remove_dir_all(temp_dir).map_err(Error::RemoveDirectory)?;
 
         Ok(())
     }

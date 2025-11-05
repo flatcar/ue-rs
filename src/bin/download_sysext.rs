@@ -6,7 +6,6 @@ use std::path::Path;
 #[macro_use]
 extern crate log;
 
-use anyhow::Result;
 use argh::FromArgs;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 

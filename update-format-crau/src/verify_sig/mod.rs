@@ -1,4 +1,8 @@
-use anyhow::{Context, Result, anyhow, bail};
+mod error;
+
+pub(super) use error::Error;
+pub(super) type Result<T> = std::result::Result<T, Error>;
+
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use rsa::pkcs1::{DecodeRsaPrivateKey, DecodeRsaPublicKey};
 use rsa::pkcs8::{DecodePrivateKey, DecodePublicKey};
@@ -24,9 +28,11 @@ pub fn sign_rsa_pkcs(databuf: &[u8], private_key: RsaPrivateKey) -> Result<Vec<u
     let signing_key = pkcs1v15::SigningKey::<Sha256>::new(private_key);
 
     let signature = signing_key.sign(databuf);
-    assert_ne!(signature.to_bytes().as_ref(), databuf);
-
-    Ok(signature.to_vec())
+    if signature.to_bytes().as_ref() == databuf {
+        Err(Error::DatabufNotSignedCorrectly)
+    } else {
+        Ok(signature.to_vec())
+    }
 }
 
 // Takes a data buffer, signature and a public key, to verify the data
@@ -43,9 +49,9 @@ pub fn verify_rsa_pkcs_buf(databuf: &[u8], signature: &[u8], public_key: RsaPubl
     verifying_key
         .verify(
             databuf,
-            &pkcs1v15::Signature::try_from(signature).context(anyhow!("unable to convert signature into pkcs1v15::Signature"))?,
+            &pkcs1v15::Signature::try_from(signature).map_err(Error::InvalidPkcs1v15Signature)?,
         )
-        .context(format!("failed to verify signature ({signature:?})"))
+        .map_err(Error::CouldNotVerifySignature)
 }
 
 // Takes a data buffer, signature and a public key, to verify the data
@@ -60,43 +66,27 @@ pub fn verify_rsa_pkcs_prehash(digestbuf: &[u8], signature: &[u8], public_key: R
     verifying_key
         .verify_prehash(
             digestbuf,
-            &pkcs1v15::Signature::try_from(signature).context(anyhow!("unable to convert signature into pkcs1v15::Signature"))?,
+            &pkcs1v15::Signature::try_from(signature).map_err(Error::InvalidPkcs1v15Signature)?,
         )
-        .context(format!("failed to verify_prehash signature ({signature:?})"))
+        .map_err(Error::CouldNotVerifySignature)
 }
 
 pub fn get_private_key_pkcs_pem(private_key_path: &str, key_type: KeyType) -> Result<RsaPrivateKey> {
-    let private_key_buf = fs::read_to_string(private_key_path).context(format!("failed to read private key from path {private_key_path:?}"))?;
-    let out_key = match key_type {
-        KeyType::KeyTypePkcs1 => RsaPrivateKey::from_pkcs1_pem(private_key_buf.as_str()).or_else(|error| {
-            bail!("failed to parse PKCS1 PEM message: {error:?}");
-        }),
-        KeyType::KeyTypePkcs8 => RsaPrivateKey::from_pkcs8_pem(private_key_buf.as_str()).or_else(|error| {
-            bail!("failed to parse PKCS8 PEM message: {error:?}");
-        }),
-        KeyType::KeyTypeNone => {
-            bail!("invalid key type: {key_type:?}");
-        }
-    };
-
-    out_key
+    let private_key_buf = fs::read_to_string(private_key_path).map_err(Error::ReadPrivateKey)?;
+    match key_type {
+        KeyType::KeyTypePkcs1 => RsaPrivateKey::from_pkcs1_pem(private_key_buf.as_str()).map_err(Error::DeserialisePkcs1),
+        KeyType::KeyTypePkcs8 => RsaPrivateKey::from_pkcs8_pem(private_key_buf.as_str()).map_err(Error::DeserialisePkcs8),
+        KeyType::KeyTypeNone => Err(Error::InvalidPrivateKeyType),
+    }
 }
 
 pub fn get_public_key_pkcs_pem(public_key_path: &str, key_type: KeyType) -> Result<RsaPublicKey> {
-    let public_key_buf = fs::read_to_string(public_key_path).context(format!("failed to read public key from path {public_key_path:?}"))?;
-    let out_key = match key_type {
-        KeyType::KeyTypePkcs1 => RsaPublicKey::from_pkcs1_pem(public_key_buf.as_str()).or_else(|error| {
-            bail!("failed to parse PKCS1 PEM message: {error:?}");
-        }),
-        KeyType::KeyTypePkcs8 => RsaPublicKey::from_public_key_pem(public_key_buf.as_str()).or_else(|error| {
-            bail!("failed to parse PKCS8 PEM message: {error:?}");
-        }),
-        KeyType::KeyTypeNone => {
-            bail!("invalid key type: {key_type:?}");
-        }
-    };
-
-    out_key
+    let public_key_buf = fs::read_to_string(public_key_path).map_err(Error::ReadPublicKey)?;
+    match key_type {
+        KeyType::KeyTypePkcs1 => RsaPublicKey::from_pkcs1_pem(public_key_buf.as_str()).map_err(Error::DeserialisePkcs1),
+        KeyType::KeyTypePkcs8 => RsaPublicKey::from_public_key_pem(public_key_buf.as_str()).map_err(Error::DecodePublicKey),
+        KeyType::KeyTypeNone => Err(Error::InvalidPrivateKeyType),
+    }
 }
 
 #[cfg(test)]
