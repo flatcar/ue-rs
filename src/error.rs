@@ -27,6 +27,7 @@ pub enum Error {
     PostRequestFailed(reqwest::Error),
     GetResponseBodyText(reqwest::Error),
     XmlRequestToString(hard_xml::XmlError),
+    DownloadFailed,
 }
 
 impl std::error::Error for Error {}
@@ -57,6 +58,7 @@ impl std::fmt::Display for Error {
             Error::PostRequestFailed(err) => write!(f, "POST request failed: {err}"),
             Error::GetResponseBodyText(err) => write!(f, "failed to get response body text: {err}"),
             Error::XmlRequestToString(err) => write!(f, "xml request to string: {err}"),
+            Error::DownloadFailed => write!(f, "download failed"),
         }
     }
 }
