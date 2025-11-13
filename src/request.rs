@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use log::debug;
 
 use hard_xml::XmlWrite;
 use crate::error::Error;
@@ -71,9 +72,8 @@ pub fn perform(client: &reqwest::blocking::Client, parameters: Parameters<'_>) -
         r.to_string().map_err(Error::XmlRequestToString)?
     };
 
-    // TODO: remove
-    println!("request body:\n\t{req_body}");
-    println!();
+    debug!("request body:\n\t{req_body}");
+    debug!("");
 
     let resp = client.post(UPDATE_URL).body(req_body).send().map_err(Error::PostRequestFailed)?;
 
