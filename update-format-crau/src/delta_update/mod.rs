@@ -22,10 +22,14 @@ pub(super) type Result<T> = std::result::Result<T, Error>;
 const DELTA_UPDATE_HEADER_SIZE: u64 = 4 + 8 + 8;
 const DELTA_UPDATE_FILE_MAGIC: &[u8] = b"CrAU";
 
+/// Type alias that represents u8 Vec.
+/// Note: Vec<u8>, which has its size known at compile-time. is a better choice
+/// than slice, which would require lifetime definitions or Box.
+type DeltaMagic = Vec<u8>;
+
 #[derive(Debug)]
 pub struct DeltaUpdateFileHeader {
-    // TODO: should probably be a new type, would help in Error type too
-    magic: [u8; 4],
+    magic: DeltaMagic,
     file_format_version: u64,
     manifest_size: u64,
 }
@@ -40,12 +44,12 @@ impl DeltaUpdateFileHeader {
 // Read delta update header from the given file, return DeltaUpdateFileHeader.
 pub fn read_delta_update_header(f: &File) -> Result<DeltaUpdateFileHeader> {
     let mut header = DeltaUpdateFileHeader {
-        magic: [0; 4],
+        magic: DeltaMagic::with_capacity(4),
         file_format_version: 0,
         manifest_size: 0,
     };
 
-    f.read_exact_at(&mut header.magic, 0).map_err(Error::ReadHeaderMagic)?;
+    f.read_exact_at(header.magic.as_mut_slice(), 0).map_err(Error::ReadHeaderMagic)?;
     if header.magic != DELTA_UPDATE_FILE_MAGIC {
         return Err(Error::BadHeaderMagic(header.magic));
     }

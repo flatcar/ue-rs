@@ -3,7 +3,7 @@ use std::path::PathBuf;
 #[derive(Debug)]
 pub enum Error {
     ReadHeaderMagic(std::io::Error),
-    BadHeaderMagic([u8; 4]),
+    BadHeaderMagic(Vec<u8>),
     ReadFileFormatVersion(std::io::Error),
     UnsupportedFileFormatVersion(u64),
     ReadManifestSize(std::io::Error),
