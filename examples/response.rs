@@ -29,7 +29,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("{}", RESPONSE_XML);
     println!();
 
-    // TODO: fine for a small example but shouldnt be encouraged
+    // NOTE: Ideally we should define a custom error type for each function,
+    // which would however require a separate error.rs defined under examples directory.
+    // That would require not only more code, but also that would be confusing
+    // because each example file should be able to be given as a parameter for
+    // e.g. `cargo run --example` command.
+    // So for now we do allow `.unwrap()` calls here in examples. In the end example
+    // code should be short and self-contained.
     let resp = omaha::Response::from_str(RESPONSE_XML).unwrap();
 
     println!("{:#?}", resp);

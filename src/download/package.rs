@@ -8,7 +8,7 @@ use log::{debug, info};
 use reqwest::blocking::Client;
 use url::Url;
 
-use crate::{download_and_hash, hash_on_disk};
+use crate::{download_and_hash, hash_on_disk, DownloadResult};
 use omaha::{Sha1Digest, Sha256Digest};
 use update_format_crau::delta_update;
 
@@ -80,23 +80,22 @@ impl Package<'_> {
         Ok(())
     }
 
-    pub fn download(&mut self, into_dir: &Path, client: &Client) -> Result<()> {
+    pub fn download(&mut self, into_dir: &Path, client: &Client) -> Result<DownloadResult> {
         // FIXME: use _range_start for completing downloads
         let _range_start = match self.status {
             PackageStatus::ToDownload => 0usize,
             PackageStatus::DownloadIncomplete(s) => s,
-            _ => return Ok(()),
+            _ => return Err(Error::DownloadFailed),
         };
 
         info!("downloading {}...", self.url);
 
         let path = into_dir.join(&*self.name);
 
-        // TODO: why ignore returned DownloadResult here?
         match download_and_hash(client, self.url.clone(), &path, self.hash_sha256, self.hash_sha1) {
-            Ok(_) => {
+            Ok(res) => {
                 self.status = PackageStatus::Unverified;
-                Ok(())
+                Ok(res)
             }
             Err(err) => {
                 self.status = PackageStatus::DownloadFailed;
@@ -161,7 +160,8 @@ impl Package<'_> {
 
         // Parse signature data from sig blobs, data blobs, public key, and verify.
         match delta_update::parse_signature_data(&sigbytes, hdhashvec.as_slice(), pubkey_path) {
-            // TODO: why throw away the result of the above call here?
+            // Currently we ignore the result of the parse_signature_data, as we do not need
+            // to touch buffer that contains signature data here.
             Ok(_) => {
                 self.status = PackageStatus::Verified;
                 Ok(datablobspath)
