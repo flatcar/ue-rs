@@ -160,7 +160,8 @@ impl Package<'_> {
 
         // Parse signature data from sig blobs, data blobs, public key, and verify.
         match delta_update::parse_signature_data(&sigbytes, hdhashvec.as_slice(), pubkey_path) {
-            // TODO: why throw away the result of the above call here?
+            // Currently we ignore the result of the parse_signature_data, as we do not need
+            // to touch buffer that contains signature data here.
             Ok(_) => {
                 self.status = PackageStatus::Verified;
                 Ok(datablobspath)
