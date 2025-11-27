@@ -68,7 +68,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     ////
     let resp = omaha::Response::from_str(&response_text)?;
 
-    // TODO: fine for an example but shouldnt recommend
+    // NOTE: Ideally we should define a custom error type for each function,
+    // which would however require a separate error.rs defined under examples directory.
+    // That would require not only more code, but also that would be confusing
+    // because each example file should be able to be given as a parameter for
+    // e.g. `cargo run --example` command.
+    // So for now we do allow `.unwrap()` calls here in examples. In the end example
+    // code should be short and self-contained.
     let pkgs_to_dl = get_pkgs_to_download(&resp).unwrap();
 
     ////
