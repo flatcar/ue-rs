@@ -8,7 +8,7 @@ use log::{debug, info};
 use reqwest::blocking::Client;
 use url::Url;
 
-use crate::{download_and_hash, hash_on_disk, DownloadResult};
+use crate::{download_and_hash, hash_on_disk};
 use omaha::{Sha1Digest, Sha256Digest};
 use update_format_crau::delta_update;
 
@@ -80,12 +80,14 @@ impl Package<'_> {
         Ok(())
     }
 
-    pub fn download(&mut self, into_dir: &Path, client: &Client) -> Result<DownloadResult> {
+    pub fn download(&mut self, into_dir: &Path, client: &Client) -> Result<()> {
         // FIXME: use _range_start for completing downloads
         let _range_start = match self.status {
             PackageStatus::ToDownload => 0usize,
             PackageStatus::DownloadIncomplete(s) => s,
-            _ => return Err(Error::DownloadFailed),
+            // We need to return Ok without result here to make the outer loop
+            // that calls do_download_verify work correctly.
+            _ => return Ok(()),
         };
 
         info!("downloading {}...", self.url);
@@ -93,9 +95,11 @@ impl Package<'_> {
         let path = into_dir.join(&*self.name);
 
         match download_and_hash(client, self.url.clone(), &path, self.hash_sha256, self.hash_sha1) {
-            Ok(res) => {
+            Ok(_) => {
+                // we ignore DownloadResult here to align with return type above
+                // when returning Ok(()) inside checking for self.status.
                 self.status = PackageStatus::Unverified;
-                Ok(res)
+                Ok(())
             }
             Err(err) => {
                 self.status = PackageStatus::DownloadFailed;
