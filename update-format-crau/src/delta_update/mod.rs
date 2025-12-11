@@ -44,7 +44,7 @@ impl DeltaUpdateFileHeader {
 // Read delta update header from the given file, return DeltaUpdateFileHeader.
 pub fn read_delta_update_header(f: &File) -> Result<DeltaUpdateFileHeader> {
     let mut header = DeltaUpdateFileHeader {
-        magic: DeltaMagic::with_capacity(4),
+        magic: DeltaMagic::from([0; 4]),
         file_format_version: 0,
         manifest_size: 0,
     };
