@@ -1749,7 +1749,6 @@ dependencies = [
  "log",
  "omaha",
  "reqwest",
- "sha2",
  "tempfile",
  "update-format-crau",
  "url",
