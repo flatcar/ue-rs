@@ -10,12 +10,12 @@ bzip2 = "0.4.4"
 log = "0.4.19"
 protobuf = "3"
 
-# WIP to update rsa to 0.10.0-pre.?
-# Necessary to pin to specific pre/rc versions, because of sub-dependency issues.
-rsa = { version = "=0.10.0-pre.4", features = ["sha2"] }
-pkcs1 = { version = "=0.8.0-rc.1" }
-pkcs8 = { version = "=0.11.0-rc.1" }
+# WIP to update rsa to 0.10.0-rc.?
+# Necessary to pin to specific rc versions, because of sub-dependency issues.
+rsa = { version = "=0.10.0-rc.11", features = ["sha2"] }
+pkcs1 = { version = "=0.8.0-rc.4" }
+pkcs8 = { version = "=0.11.0-rc.8" }
 
 [dev-dependencies]
 # Necessary to pin it under dev-dependencies, as it is an indirect dependency.
-der = { version = "=0.8.0-rc.1" }
+der = { version = "=0.8.0-rc.9" }
