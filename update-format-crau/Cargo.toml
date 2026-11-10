@@ -9,4 +9,6 @@ edition = "2021"
 bzip2 = "0.4.4"
 log = "0.4.19"
 protobuf = "3"
-rsa = { version = "0.9.10", features = ["sha2"] }
+
+# Crate rsa 0.10.0 or newer requires opt-in feature pkcs1v15 for PKCS#1 v1.5
+rsa = { version = "0.10.0", features = ["pkcs1v15"] }
